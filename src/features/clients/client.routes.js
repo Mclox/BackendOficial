@@ -1,18 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { sql, poolPromise } = require('../../config/db');
-const ClientModel = require('./client.model');
+const ClientController = require('./client.controller');
+const { validateRequiredFields } = require('../../middlewares/validator');
+const { verifyToken } = require('../../middlewares/auth.middleware');
 
-router.get('/', async (req, res) => {
-    const clients = await ClientModel.getAll();
-    res.json({ success: true, data: clients });
-});
-
-router.post('/', async (req, res) => {
-    try {
-        const id = await ClientModel.create(req.body);
-        res.json({ success: true, id });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
+router.get('/', verifyToken, ClientController.getClients);
+router.get('/:id', verifyToken, ClientController.getClient);
+// El diccionario dice que solo 'nombre' es NOT NULL
+router.post('/', verifyToken, validateRequiredFields(['nombre']), ClientController.createClient);
+router.put('/:id', verifyToken, validateRequiredFields(['nombre']), ClientController.updateClient);
+router.delete('/:id', verifyToken, ClientController.deleteClient);
 
 module.exports = router;

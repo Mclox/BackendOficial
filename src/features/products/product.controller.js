@@ -1,3 +1,26 @@
+// const ProductModel = require('./product.model');
+
+// class ProductController {
+//     static async getProducts(req, res) {
+//         try {
+//             const products = await ProductModel.getAll();
+//             res.json({ success: true, data: products });
+//         } catch (error) {
+//             res.status(500).json({ success: false, error: error.message });
+//         }
+//     }
+
+//     static async createProduct(req, res) {
+//         try {
+//             const id = await ProductModel.create(req.body);
+//             res.status(201).json({ success: true, id });
+//         } catch (error) {
+//             res.status(500).json({ success: false, error: error.message });
+//         }
+//     }
+// }
+// module.exports = ProductController;
+
 const ProductModel = require('./product.model');
 
 class ProductController {
@@ -6,16 +29,47 @@ class ProductController {
             const products = await ProductModel.getAll();
             res.json({ success: true, data: products });
         } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ success: false, message: 'Error obteniendo productos', error: error.message });
+        }
+    }
+
+    static async getProduct(req, res) {
+        try {
+            const product = await ProductModel.getById(req.params.id);
+            if (!product) return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+            res.json({ success: true, data: product });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Error obteniendo producto', error: error.message });
         }
     }
 
     static async createProduct(req, res) {
         try {
             const id = await ProductModel.create(req.body);
-            res.status(201).json({ success: true, id });
+            res.status(201).json({ success: true, message: 'Producto creado', data: { id_producto: id } });
         } catch (error) {
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ success: false, message: 'Error creando producto', error: error.message });
+        }
+    }
+
+    static async updateProduct(req, res) {
+        try {
+            const updated = await ProductModel.update(req.params.id, req.body);
+            if (!updated) return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+            res.json({ success: true, message: 'Producto actualizado' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Error actualizando producto', error: error.message });
+        }
+    }
+
+    static async deleteProduct(req, res) {
+        try {
+            const deleted = await ProductModel.delete(req.params.id);
+            if (!deleted) return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+            res.json({ success: true, message: 'Producto eliminado' });
+        } catch (error) {
+            if (error.number === 547) return res.status(400).json({ success: false, message: 'No se puede eliminar, el producto tiene historial (ej. Ventas o Compras).' });
+            res.status(500).json({ success: false, message: 'Error eliminando producto', error: error.message });
         }
     }
 }
