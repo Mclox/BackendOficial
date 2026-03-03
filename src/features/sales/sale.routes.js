@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const SaleController = require('./sale.controller');
+const { verifyToken } = require('../../middlewares/auth.middleware');
 
-router.get('/', (req, res) => {
-    res.json({ success: true, message: 'Módulo en construcción (Por Sebastián) 🚧' });
-});
+router.get('/', verifyToken, SaleController.getSales);
+router.post('/', verifyToken, SaleController.createSale);
 
 module.exports = router;
