@@ -5,8 +5,8 @@ const { validateRequiredFields } = require('../../middlewares/validator');
 
 router.get('/', ServiceController.getServices);
 router.get('/:id', ServiceController.getService);
-router.post('/', validateRequiredFields(['nombre', 'precio']), ServiceController.createService);
-router.put('/:id', validateRequiredFields(['nombre', 'precio']), ServiceController.updateService);
+router.post('/', validateRequiredFields(['nombre', 'precio_neto']), ServiceController.createService);
+router.put('/:id', validateRequiredFields(['nombre', 'precio_neto']), ServiceController.updateService);
 router.delete('/:id', ServiceController.deleteService);
 
 module.exports = router;

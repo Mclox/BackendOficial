@@ -17,21 +17,17 @@ class ServiceModel {
 
     static async create(data) {
         const pool = await poolPromise;
-        const { nombre, descripcion, precio, duracion, porcentaje_barbero } = data;
+        const { nombre, precio_neto, iva_porcentaje, duracion_minutos } = data;
 
         const result = await pool.request()
             .input('nombre', sql.VarChar, nombre)
-            .input('descripcion', sql.VarChar, descripcion || null)
-            .input('precio', sql.Decimal(12,2), precio)
-            .input('duracion', sql.Int, duracion || null)
-            .input('porcentaje_barbero', sql.Decimal(5,2), porcentaje_barbero || null)
+            .input('pre_neto', sql.Decimal(12,2), precio_neto)
+            .input('iva', sql.Decimal(5,2), iva_porcentaje || 0.00)
+            .input('duracion', sql.Int, duracion_minutos)
             .query(`
-                DECLARE @newId INT;
-                SELECT @newId = ISNULL(MAX(id_servicio), 0) + 1 FROM Servicios;
-                
-                INSERT INTO Servicios (id_servicio, nombre, descripcion, precio, duracion, porcentaje_barbero)
-                VALUES (@newId, @nombre, @descripcion, @precio, @duracion, @porcentaje_barbero);
-                
+                DECLARE @newId INT = (SELECT ISNULL(MAX(id_servicio), 0) + 1 FROM Servicios);
+                INSERT INTO Servicios (id_servicio, nombre, precio_neto, iva_porcentaje, duracion_minutos)
+                VALUES (@newId, @nombre, @pre_neto, @iva, @duracion);
                 SELECT @newId AS insertId;
             `);
         return result.recordset[0].insertId;
@@ -39,19 +35,18 @@ class ServiceModel {
 
     static async update(id, data) {
         const pool = await poolPromise;
-        const { nombre, descripcion, precio, duracion, porcentaje_barbero } = data;
+        const { nombre, precio_neto, iva_porcentaje, duracion_minutos } = data;
 
         const result = await pool.request()
             .input('id', sql.Int, id)
             .input('nombre', sql.VarChar, nombre)
-            .input('descripcion', sql.VarChar, descripcion || null)
-            .input('precio', sql.Decimal(12,2), precio)
-            .input('duracion', sql.Int, duracion || null)
-            .input('porcentaje_barbero', sql.Decimal(5,2), porcentaje_barbero || null)
+            .input('pre_neto', sql.Decimal(12,2), precio_neto)
+            .input('iva', sql.Decimal(5,2), iva_porcentaje || 0.00)
+            .input('duracion', sql.Int, duracion_minutos)
             .query(`
                 UPDATE Servicios 
-                SET nombre = @nombre, descripcion = @descripcion, precio = @precio, 
-                    duracion = @duracion, porcentaje_barbero = @porcentaje_barbero
+                SET nombre = @nombre, precio_neto = @pre_neto, 
+                    iva_porcentaje = @iva, duracion_minutos = @duracion
                 WHERE id_servicio = @id
             `);
         return result.rowsAffected[0] > 0;

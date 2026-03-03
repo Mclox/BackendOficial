@@ -3,7 +3,8 @@ const router = express.Router();
 const UserController = require('./user.controller');
 const { validateRequiredFields } = require('../../middlewares/validator');
 
-const userRequiredFields = ['nombre', 'email', 'id_rol', 'documento', 'password'];
+// Cambia la línea de requiredFields por esta:
+const userRequiredFields = ['nombre', 'tipo_documento', 'email', 'id_rol', 'documento', 'password'];
 
 router.get('/', UserController.getUsers);
 router.get('/:id', UserController.getUser);
