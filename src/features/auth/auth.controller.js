@@ -92,9 +92,10 @@ class AuthController {
                 return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
             }
 
+            // Generar el Token JWT (Válido por 8 horas)
             const token = jwt.sign(
                 { id: user.id_usuario, rol: user.rol_nombre, email: user.email },
-                process.env.JWT_SECRET || 'MiClaveSecretaSuperSegura123',
+                process.env.JWT_SECRET || 'SECRET_KEY_BARBERSITE', // <--- ¡AQUÍ ESTÁ EL CAMBIO CLAVE!
                 { expiresIn: '8h' }
             );
 
