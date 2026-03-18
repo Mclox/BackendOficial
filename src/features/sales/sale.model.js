@@ -53,5 +53,24 @@ class SaleModel {
             `);
         // No necesitamos retornar nada, el Trigger hace el resto
     }
+
+    // ... debajo de createDetail()
+
+    static async getDetails(id_venta) {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('id_v', sql.Int, id_venta)
+            .query(`
+                SELECT d.*, 
+                       p.nombre as producto_nombre, 
+                       s.nombre as servicio_nombre
+                FROM Ventas_Detalle d
+                LEFT JOIN Productos p ON d.id_producto = p.id_producto
+                LEFT JOIN Servicios s ON d.id_servicio = s.id_servicio
+                WHERE d.id_venta = @id_v
+            `);
+        return result.recordset;
+    }
+    
 }
 module.exports = SaleModel;

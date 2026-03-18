@@ -20,16 +20,18 @@ app.use('/api/roles', require('./features/roles/role.routes'));
 app.use('/api/clients', require('./features/clients/client.routes'));
 app.use('/api/products', require('./features/products/product.routes'));
 app.use('/api/services', require('./features/services/service.routes'));
+app.use('/api/employees', require('./features/employees/employee.routes')); // <-- AGREGA ESTA LÍNEA
 
 // --- MÓDULOS TRANSACCIONALES Y DE NEGOCIO ---
 app.use('/api/appointments', require('./features/appointments/appointment.routes'));
 app.use('/api/sales', require('./features/sales/sale.routes'));
 app.use('/api/landing-config', require('./features/landing-config/landing.routes'));
+app.use('/api/product-entries', require('./features/product-entries/product-entries.routes'));
 
 // --- MÓDULOS DESHABILITADOS (Fuera del alcance actual V2) ---
 // app.use('/api/suppliers', require('./features/suppliers/supplier.routes'));
 // app.use('/api/purchases', require('./features/purchases/purchase.routes'));
-// app.use('/api/stock-returns', require('./features/stock-returns/stock-return.routes'));
+app.use('/api/stock-returns', require('./features/stock-returns/stock-return.routes'));
 // app.use('/api/supplier-returns', require('./features/supplier-returns/supp-return.routes'));
 
 module.exports = app;

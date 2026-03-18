@@ -21,7 +21,7 @@ const dbSettings = {
 const poolPromise = new sql.ConnectionPool(dbSettings)
     .connect()
     .then(pool => {
-        console.log('✅ Conectado a SQL Server (BARBERSITE)');
+        console.log('✅ Conectado a SQL Server (BARBERSITE_V2)');
         return pool;
     })
     .catch(err => {

@@ -1,70 +1,3 @@
-// const jwt = require('jsonwebtoken');
-// const bcrypt = require('bcryptjs');
-// const { sql, poolPromise } = require('../../config/db');
-
-// class AuthController {
-//     static async login(req, res) {
-//         const { email, password } = req.body;
-//         try {
-//             const pool = await poolPromise;
-//             const result = await pool.request()
-//                 .input('email', sql.VarChar, email)
-//                 .query('SELECT u.*, r.nombre as rol FROM Usuarios u JOIN Roles r ON u.id_rol = r.id_rol WHERE u.email = @email');
-
-//             const user = result.recordset[0];
-//             if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
-
-//             // En un sistema real usaríamos bcrypt.compare, aquí comparamos directo por ahora para que no te bloquees
-//             if (password !== user.contrasena) {
-//                 return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
-//             }
-//                 // Generar el Token JWT (Válido por 8 horas)
-//             const token = jwt.sign(
-//                 { id: user.id_usuario, rol: user.rol_nombre, email: user.email },
-//                 process.env.JWT_SECRET || 'MiClaveSecretaSuperSegura123',
-//                 { expiresIn: '8h' }
-//             );
-
-//             // Respondemos con éxito, el token y los datos COMPLETOS del usuario
-//             res.status(200).json({
-//                 success: true,
-//                 message: 'Login exitoso',
-//                 token: token,
-//                 user: {
-//                     id_usuario: user.id_usuario, // Cambiado de 'id' a 'id_usuario' para coincidir con tu interface
-//                     nombre: user.nombre,
-//                     email: user.email,
-//                     telefono: user.telefono,      // <-- ¡Agregado!
-//                     direccion: user.direccion,    // <-- ¡Agregado!
-//                     documento: user.documento,    // <-- ¡Agregado!
-//                     rol: user.rol_nombre,
-//                     id_rol: user.id_rol,          // <-- ¡Agregado! Necesario para React
-//                     img: user.img
-//                 }
-//             });
-
-//         } catch (error) {
-//             res.status(500).json({ success: false, message: 'Error en el servidor', error: error.message });
-//         }
-//     }
-// }
-
-// module.exports = AuthController;
-// //             const token = jwt.sign(
-// //                 { id: user.id_usuario, rol: user.rol }, 
-// //                 'SECRET_KEY_BARBERSITE', 
-// //                 { expiresIn: '8h' }
-// //             );
-
-// //             res.json({ success: true, token, user: { nombre: user.nombre, rol: user.rol } });
-// //         } catch (error) {
-// //             res.status(500).json({ success: false, error: error.message });
-// //         }
-// //     }
-// // }
-// // module.exports = AuthController;
-
-
 const jwt = require('jsonwebtoken');
 const { sql, poolPromise } = require('../../config/db');
 // Importamos el modelo de usuarios para reutilizar la lógica de guardado
@@ -73,7 +6,7 @@ const UserModel = require('../users/user.model');
 class AuthController {
     // --- FUNCIÓN LOGIN (La que ya funciona) ---
     static async login(req, res) {
-        const { email, password } = req.body;
+        const { email, contrasena } = req.body;
         try {
             const pool = await poolPromise;
             const result = await pool.request()
@@ -88,7 +21,7 @@ class AuthController {
             const user = result.recordset[0];
             if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
 
-            if (password !== user.contrasena) {
+            if (contrasena !== user.contrasena) {
                 return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
             }
 

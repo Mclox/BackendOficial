@@ -25,8 +25,8 @@ class AppointmentModel {
             .input('id_bar', sql.Int, id_barbero)
             .input('id_ser', sql.Int, id_servicio)
             .input('fec', sql.Date, fecha)
-            .input('hor_i', sql.VarChar, hora_inicio) // <-- CAMBIO AQUÍ (VarChar en lugar de Time)
-            .input('hor_f', sql.VarChar, hora_fin)    // <-- CAMBIO AQUÍ (VarChar en lugar de Time)
+            .input('hor_i', sql.VarChar, hora_inicio) // Usamos VarChar para evitar el error de formato Time
+            .input('hor_f', sql.VarChar, hora_fin)
             .query(`
                 DECLARE @newId INT = (SELECT ISNULL(MAX(id_cita), 0) + 1 FROM Citas);
                 INSERT INTO Citas (id_cita, id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, estado)
@@ -35,6 +35,43 @@ class AppointmentModel {
             `);
         return result.recordset[0].insertId;
     }
+
+    static async update(id, data) {
+        const pool = await poolPromise;
+        const { id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin } = data;
+
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .input('id_cli', sql.Int, id_cliente)
+            .input('id_bar', sql.Int, id_barbero)
+            .input('id_ser', sql.Int, id_servicio)
+            .input('fec', sql.Date, fecha)
+            .input('hor_i', sql.VarChar, hora_inicio)
+            .input('hor_f', sql.VarChar, hora_fin)
+            .query(`
+                UPDATE Citas 
+                SET id_cliente = @id_cli, id_barbero = @id_bar, id_servicio = @id_ser, 
+                    fecha = @fec, hora_inicio = @hor_i, hora_fin = @hor_f
+                WHERE id_cita = @id
+            `);
+        return result.rowsAffected[0] > 0;
     }
-    // ... updateStatus queda igual
+
+    static async updateStatus(id, estado) {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .input('est', sql.VarChar, estado)
+            .query(`UPDATE Citas SET estado = @est WHERE id_cita = @id`);
+        return result.rowsAffected[0] > 0;
+    }
+
+    static async delete(id) {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`DELETE FROM Citas WHERE id_cita = @id`);
+        return result.rowsAffected[0] > 0;
+    }
+}
 module.exports = AppointmentModel;

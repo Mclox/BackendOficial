@@ -8,6 +8,18 @@ class SaleController {
         } catch (error) { res.status(500).json({ error: error.message }); }
     }
 
+    // ... debajo de getSales()
+
+    static async getSaleDetails(req, res) {
+        try {
+            const { id } = req.params;
+            const data = await SaleModel.getDetails(id);
+            res.json({ success: true, data });
+        } catch (error) { 
+            res.status(500).json({ success: false, error: error.message }); 
+        }
+    }
+
     static async createSale(req, res) {
         try {
             const { id_cliente, id_vendedor, metodo_pago, detalles } = req.body;

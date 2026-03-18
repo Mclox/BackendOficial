@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const StockReturnController = require('./stock-return.controller');
-const { validateRequiredFields } = require('../../middlewares/validator');
+// Corrección: Importamos el archivo en singular
+const StockReturnController = require('./stock-return.controller'); 
+const { verifyToken } = require('../../middlewares/auth.middleware');
 
-router.get('/', StockReturnController.getReturns);
-router.post('/', validateRequiredFields(['remitido']), StockReturnController.createReturn);
+router.get('/', verifyToken, StockReturnController.getReturns);
+router.post('/', verifyToken, StockReturnController.createReturn);
 
 module.exports = router;
