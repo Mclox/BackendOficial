@@ -1,23 +1,27 @@
-# 1. Usamos una versión estable de Node
-FROM node:18-alpine
+# 1. Cambiamos a una imagen base basada en Debian, que es más robusta para compilar módulos nativos
+FROM node:18-slim
 
-# 2. Instalamos herramientas necesarias para compilar bases de datos (SQL Server)
-RUN apk add --no-cache python3 make g++
+# 2. Instalamos las herramientas de compilación esenciales en Debian
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# 3. Creamos y nos ubicamos en la carpeta de la app dentro del contenedor
+# 3. Creamos el directorio de trabajo
 WORKDIR /usr/src/app
 
 # 4. Copiamos los archivos de dependencias
 COPY package*.json ./
 
-# 5. Limpiamos caché de npm e instalamos las dependencias desde cero
-RUN npm cache clean --force && npm install
+# 5. Instalamos dependencias limpiando cualquier rastro previo
+RUN npm install
 
-# 6. Copiamos el resto del código del proyecto
+# 6. Copiamos el resto del código
 COPY . .
 
-# 7. Exponemos el puerto 4000 (el que tienes en tu archivo)
+# 7. Exponemos el puerto
 EXPOSE 4000
 
-# 8. Comando para arrancar la aplicación
+# 8. Arrancamos el servicio
 CMD ["npm", "start"]
