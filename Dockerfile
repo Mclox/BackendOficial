@@ -1,27 +1,20 @@
-# 1. Cambiamos a una imagen base basada en Debian, que es más robusta para compilar módulos nativos
-FROM node:18-slim
+# 1. Usamos la imagen oficial completa de Node (incluye todas las herramientas de compilación por defecto)
+FROM node:18
 
-# 2. Instalamos las herramientas de compilación esenciales en Debian
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# 3. Creamos el directorio de trabajo
+# 2. Creamos el directorio de trabajo dentro del contenedor
 WORKDIR /usr/src/app
 
-# 4. Copiamos los archivos de dependencias
+# 3. Copiamos los archivos de dependencias
 COPY package*.json ./
 
-# 5. Instalamos dependencias limpiando cualquier rastro previo
+# 4. Instalamos las dependencias
 RUN npm install
 
-# 6. Copiamos el resto del código
+# 5. Copiamos todo el código del proyecto
 COPY . .
 
-# 7. Exponemos el puerto
+# 6. Exponemos el puerto
 EXPOSE 4000
 
-# 8. Arrancamos el servicio
+# 7. Comando para arrancar el backend
 CMD ["npm", "start"]
