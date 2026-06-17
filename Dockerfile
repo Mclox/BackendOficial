@@ -1,20 +1,25 @@
-# 1. Usamos la imagen oficial completa de Node (incluye todas las herramientas de compilación por defecto)
+# 1. Usamos la imagen oficial completa de Node 18
 FROM node:18
 
-# 2. Creamos el directorio de trabajo dentro del contenedor
+# 2. Instalamos unixodbc-dev que es obligatorio para que 'msnodesqlv8' compile en Linux
+RUN apt-get update && apt-get install -y \
+    unixodbc-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 3. Creamos el directorio de trabajo
 WORKDIR /usr/src/app
 
-# 3. Copiamos los archivos de dependencias
+# 4. Copiamos los archivos de dependencias
 COPY package*.json ./
 
-# 4. Instalamos las dependencias
+# 5. Instalamos las dependencias
 RUN npm install
 
-# 5. Copiamos todo el código del proyecto
+# 6. Copiamos todo el código del proyecto
 COPY . .
 
-# 6. Exponemos el puerto
+# 7. Exponemos el puerto
 EXPOSE 4000
 
-# 7. Comando para arrancar el backend
+# 8. Comando para arrancar el backend
 CMD ["npm", "start"]
