@@ -6,6 +6,8 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static('uploads'));
+
 
 app.get('/', (req, res) => {
     res.send('API de BarberSite V2 funcionando correctamente 💈');
@@ -27,6 +29,8 @@ app.use('/api/appointments', require('./features/appointments/appointment.routes
 app.use('/api/sales', require('./features/sales/sale.routes'));
 app.use('/api/landing-config', require('./features/landing-config/landing.routes'));
 app.use('/api/product-entries', require('./features/product-entries/product-entries.routes'));
+app.use('/api/dashboard', require('./features/dashboard/dashboard.routes'));
+app.use('/api/reports', require('./features/reports/reports.routes'));
 
 // --- MÓDULOS DESHABILITADOS (Fuera del alcance actual V2) ---
 // app.use('/api/suppliers', require('./features/suppliers/supplier.routes'));

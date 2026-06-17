@@ -34,5 +34,19 @@ class StockReturnController {
             res.status(201).json({ success: true, message: "Devolución registrada y stock actualizado" });
         } catch (error) { res.status(500).json({ error: error.message }); }
     }
+
+    static async updateReturnStatus(req, res) {
+        try {
+            const { estado } = req.body;
+            if (!estado) {
+                return res.status(400).json({ success: false, message: "El estado es requerido" });
+            }
+            const updated = await StockReturnModel.updateStatus(req.params.id, estado);
+            if (!updated) {
+                return res.status(404).json({ success: false, message: "Devolución no encontrada" });
+            }
+            res.json({ success: true, message: "Estado de devolución actualizado" });
+        } catch (error) { res.status(500).json({ error: error.message }); }
+    }
 }
 module.exports = StockReturnController;

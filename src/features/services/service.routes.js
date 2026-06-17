@@ -2,11 +2,15 @@ const express = require('express');
 const router = express.Router();
 const ServiceController = require('./service.controller');
 const { validateRequiredFields } = require('../../middlewares/validator');
+const { verifyToken, checkPermission } = require('../../middlewares/auth.middleware');
 
-router.get('/', ServiceController.getServices);
-router.get('/:id', ServiceController.getService);
-router.post('/', validateRequiredFields(['nombre', 'precio_neto']), ServiceController.createService);
-router.put('/:id', validateRequiredFields(['nombre', 'precio_neto']), ServiceController.updateService);
-router.delete('/:id', ServiceController.deleteService);
+// Endpoint público para la landing page (sin token)
+router.get('/public', ServiceController.getServices);
+
+router.get('/', verifyToken, checkPermission('Servicios', 'leer'), ServiceController.getServices);
+router.get('/:id', verifyToken, checkPermission('Servicios', 'leer'), ServiceController.getService);
+router.post('/', verifyToken, checkPermission('Servicios', 'crear'), validateRequiredFields(['nombre', 'precio_neto']), ServiceController.createService);
+router.put('/:id', verifyToken, checkPermission('Servicios', 'actualizar'), validateRequiredFields(['nombre', 'precio_neto']), ServiceController.updateService);
+router.delete('/:id', verifyToken, checkPermission('Servicios', 'eliminar'), ServiceController.deleteService);
 
 module.exports = router;

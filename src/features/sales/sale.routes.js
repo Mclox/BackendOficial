@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const SaleController = require('./sale.controller');
-const { verifyToken } = require('../../middlewares/auth.middleware');
+const { verifyToken, checkPermission } = require('../../middlewares/auth.middleware');
 
-router.get('/', verifyToken, SaleController.getSales);
-router.get('/:id/details', verifyToken, SaleController.getSaleDetails); // <--- NUEVA RUTA
-router.post('/', verifyToken, SaleController.createSale);
+router.get('/', verifyToken, checkPermission('Ventas', 'leer'), SaleController.getSales);
+router.get('/:id/details', verifyToken, checkPermission('Ventas', 'leer'), SaleController.getSaleDetails); // <--- NUEVA RUTA
+router.post('/', verifyToken, checkPermission('Ventas', 'crear'), SaleController.createSale);
 
 module.exports = router;

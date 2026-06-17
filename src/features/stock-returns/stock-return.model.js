@@ -23,10 +23,24 @@ class StockReturnModel {
             .input('id_usuario', sql.Int, data.id_usuario)
             .input('cantidad', sql.Int, data.cantidad)
             .input('motivo', sql.VarChar(500), data.motivo)
+            .input('estado', sql.VarChar, data.estado || 'Activo')
             .query(`
-                INSERT INTO Devoluciones_Stock (id_venta, id_producto, id_usuario, cantidad, motivo)
-                VALUES (@id_venta, @id_producto, @id_usuario, @cantidad, @motivo)
+                INSERT INTO Devoluciones_Stock (id_venta, id_producto, id_usuario, cantidad, motivo, estado)
+                VALUES (@id_venta, @id_producto, @id_usuario, @cantidad, @motivo, @estado)
             `);
-    }
+     }
+
+     static async updateStatus(id, estado) {
+         const pool = await poolPromise;
+         const result = await pool.request()
+             .input('id', sql.Int, id)
+             .input('estado', sql.VarChar, estado)
+             .query(`
+                 UPDATE Devoluciones_Stock
+                 SET estado = @estado
+                 WHERE id_devolucion = @id
+             `);
+         return result.rowsAffected[0] > 0;
+     }
 }
 module.exports = StockReturnModel;

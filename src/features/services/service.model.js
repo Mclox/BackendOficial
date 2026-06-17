@@ -17,17 +17,18 @@ class ServiceModel {
 
     static async create(data) {
         const pool = await poolPromise;
-        const { nombre, precio_neto, iva_porcentaje, duracion_minutos } = data;
+        const { nombre, precio_neto, iva_porcentaje, duracion_minutos, estado } = data;
 
         const result = await pool.request()
             .input('nombre', sql.VarChar, nombre)
             .input('pre_neto', sql.Decimal(12,2), precio_neto)
             .input('iva', sql.Decimal(5,2), iva_porcentaje || 0.00)
             .input('duracion', sql.Int, duracion_minutos)
+            .input('estado', sql.VarChar, estado || 'Activo')
             .query(`
                 DECLARE @newId INT = (SELECT ISNULL(MAX(id_servicio), 0) + 1 FROM Servicios);
-                INSERT INTO Servicios (id_servicio, nombre, precio_neto, iva_porcentaje, duracion_minutos)
-                VALUES (@newId, @nombre, @pre_neto, @iva, @duracion);
+                INSERT INTO Servicios (id_servicio, nombre, precio_neto, iva_porcentaje, duracion_minutos, estado)
+                VALUES (@newId, @nombre, @pre_neto, @iva, @duracion, @estado);
                 SELECT @newId AS insertId;
             `);
         return result.recordset[0].insertId;
@@ -35,7 +36,7 @@ class ServiceModel {
 
     static async update(id, data) {
         const pool = await poolPromise;
-        const { nombre, precio_neto, iva_porcentaje, duracion_minutos } = data;
+        const { nombre, precio_neto, iva_porcentaje, duracion_minutos, estado } = data;
 
         const result = await pool.request()
             .input('id', sql.Int, id)
@@ -43,10 +44,12 @@ class ServiceModel {
             .input('pre_neto', sql.Decimal(12,2), precio_neto)
             .input('iva', sql.Decimal(5,2), iva_porcentaje || 0.00)
             .input('duracion', sql.Int, duracion_minutos)
+            .input('estado', sql.VarChar, estado || 'Activo')
             .query(`
                 UPDATE Servicios 
                 SET nombre = @nombre, precio_neto = @pre_neto, 
-                    iva_porcentaje = @iva, duracion_minutos = @duracion
+                    iva_porcentaje = @iva, duracion_minutos = @duracion,
+                    estado = @estado
                 WHERE id_servicio = @id
             `);
         return result.rowsAffected[0] > 0;

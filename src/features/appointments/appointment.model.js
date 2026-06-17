@@ -18,7 +18,8 @@ class AppointmentModel {
 
     static async create(data) {
         const pool = await poolPromise;
-        const { id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin } = data;
+        const { id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, detalles_json } = data;
+        const detallesStr = typeof detalles_json === 'object' ? JSON.stringify(detalles_json) : detalles_json;
 
         const result = await pool.request()
             .input('id_cli', sql.Int, id_cliente)
@@ -27,10 +28,11 @@ class AppointmentModel {
             .input('fec', sql.Date, fecha)
             .input('hor_i', sql.VarChar, hora_inicio) // Usamos VarChar para evitar el error de formato Time
             .input('hor_f', sql.VarChar, hora_fin)
+            .input('detalles', sql.NVarChar, detallesStr || null)
             .query(`
                 DECLARE @newId INT = (SELECT ISNULL(MAX(id_cita), 0) + 1 FROM Citas);
-                INSERT INTO Citas (id_cita, id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, estado)
-                VALUES (@newId, @id_cli, @id_bar, @id_ser, @fec, @hor_i, @hor_f, 'pendiente');
+                INSERT INTO Citas (id_cita, id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, estado, detalles_json)
+                VALUES (@newId, @id_cli, @id_bar, @id_ser, @fec, @hor_i, @hor_f, 'pendiente', @detalles);
                 SELECT @newId AS insertId;
             `);
         return result.recordset[0].insertId;
@@ -38,7 +40,8 @@ class AppointmentModel {
 
     static async update(id, data) {
         const pool = await poolPromise;
-        const { id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin } = data;
+        const { id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, detalles_json } = data;
+        const detallesStr = typeof detalles_json === 'object' ? JSON.stringify(detalles_json) : detalles_json;
 
         const result = await pool.request()
             .input('id', sql.Int, id)
@@ -48,10 +51,11 @@ class AppointmentModel {
             .input('fec', sql.Date, fecha)
             .input('hor_i', sql.VarChar, hora_inicio)
             .input('hor_f', sql.VarChar, hora_fin)
+            .input('detalles', sql.NVarChar, detallesStr || null)
             .query(`
                 UPDATE Citas 
                 SET id_cliente = @id_cli, id_barbero = @id_bar, id_servicio = @id_ser, 
-                    fecha = @fec, hora_inicio = @hor_i, hora_fin = @hor_f
+                    fecha = @fec, hora_inicio = @hor_i, hora_fin = @hor_f, detalles_json = @detalles
                 WHERE id_cita = @id
             `);
         return result.rowsAffected[0] > 0;

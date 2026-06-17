@@ -6,5 +6,6 @@ const { verifyToken } = require('../../middlewares/auth.middleware');
 
 router.get('/', verifyToken, StockReturnController.getReturns);
 router.post('/', verifyToken, StockReturnController.createReturn);
+router.put('/:id', verifyToken, StockReturnController.updateReturnStatus);
 
 module.exports = router;

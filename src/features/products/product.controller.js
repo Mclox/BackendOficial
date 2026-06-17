@@ -45,7 +45,12 @@ class ProductController {
 
     static async createProduct(req, res) {
         try {
-            const id = await ProductModel.create(req.body);
+            const productData = { ...req.body };
+            if (req.file) {
+                // Guardamos la ruta relativa para que sea flexible
+                productData.img = `/uploads/products/${req.file.filename}`;
+            }
+            const id = await ProductModel.create(productData);
             res.status(201).json({ success: true, message: 'Producto creado', data: { id_producto: id } });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Error creando producto', error: error.message });
@@ -54,7 +59,11 @@ class ProductController {
 
     static async updateProduct(req, res) {
         try {
-            const updated = await ProductModel.update(req.params.id, req.body);
+            const productData = { ...req.body };
+            if (req.file) {
+                productData.img = `/uploads/products/${req.file.filename}`;
+            }
+            const updated = await ProductModel.update(req.params.id, productData);
             if (!updated) return res.status(404).json({ success: false, message: 'Producto no encontrado' });
             res.json({ success: true, message: 'Producto actualizado' });
         } catch (error) {

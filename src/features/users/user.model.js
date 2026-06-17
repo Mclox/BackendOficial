@@ -2,15 +2,15 @@ const { sql, poolPromise } = require('../../config/db');
 
 class UserModel {
     static async getAll() {
-        const pool = await poolPromise;
-        const result = await pool.request().query(`
-            SELECT u.id_usuario, u.nombre, u.tipo_documento, u.documento, u.email, u.telefono, u.direccion, u.img, 
-                   r.nombre as rol_nombre, r.id_rol
-            FROM Usuarios u
-            JOIN Roles r ON u.id_rol = r.id_rol
-        `);
-        return result.recordset;
-    }
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+        SELECT u.id_usuario, u.nombre, u.tipo_documento, u.documento, u.email, u.telefono, u.direccion, u.img, u.estado,
+               r.nombre as rol_nombre, r.id_rol
+        FROM Usuarios u
+        JOIN Roles r ON u.id_rol = r.id_rol
+    `);
+    return result.recordset;
+}
 
     static async getById(id) {
         const pool = await poolPromise;
@@ -48,7 +48,7 @@ class UserModel {
 
     static async update(id, userData) {
         const pool = await poolPromise;
-        const { id_rol, nombre, tipo_documento, documento, email, telefono, direccion, img } = userData;
+        const { id_rol, nombre, tipo_documento, documento, email, telefono, direccion, img, estado } = userData;
 
         const result = await pool.request()
             .input('id', sql.Int, id)
@@ -60,10 +60,11 @@ class UserModel {
             .input('telefono', sql.VarChar, telefono)
             .input('direccion', sql.VarChar, direccion)
             .input('img', sql.VarChar, img || null)
+            .input('estado', sql.VarChar, estado || 'Activo')
             .query(`
                 UPDATE Usuarios 
                 SET id_rol = @id_rol, nombre = @nombre, tipo_documento = @tipo_documento, documento = @documento, 
-                    email = @email, telefono = @telefono, direccion = @direccion, img = @img
+                    email = @email, telefono = @telefono, direccion = @direccion, img = @img, estado = @estado
                 WHERE id_usuario = @id
             `);
         return result.rowsAffected[0] > 0;
