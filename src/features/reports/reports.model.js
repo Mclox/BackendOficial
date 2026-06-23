@@ -265,19 +265,15 @@ class ReportsModel {
         };
     }
 
-    // 5. REPORTE DE INGRESOS
     static async getIncomeReport(startDate, endDate, category, barbero) {
         const pool = await poolPromise;
         const dateFilter = this.getDateFilter(startDate, endDate, 'v');
 
         const result = await pool.request().query(`
             SELECT 
-                ISNULL(SUM(v.total), 0) as ingresosTotales,
-                ISNULL(SUM(CASE WHEN d.tipo = 'Servicio' THEN d.subtotal_item ELSE 0 END), 0) as ingresosPorServicios,
-                ISNULL(SUM(CASE WHEN d.tipo = 'Producto' THEN d.subtotal_item ELSE 0 END), 0) as ingresosPorProductos
-            FROM Ventas v
-            LEFT JOIN Ventas_Detalle d ON v.id_venta = d.id_venta
-            WHERE ${dateFilter};
+                ISNULL((SELECT SUM(v2.total) FROM Ventas v2 WHERE ${this.getDateFilter(startDate, endDate, 'v2')}), 0) as ingresosTotales,
+                ISNULL((SELECT SUM(d2.subtotal_item) FROM Ventas_Detalle d2 JOIN Ventas v3 ON d2.id_venta = v3.id_venta WHERE d2.tipo = 'Servicio' AND ${this.getDateFilter(startDate, endDate, 'v3')}), 0) as ingresosPorServicios,
+                ISNULL((SELECT SUM(d3.subtotal_item) FROM Ventas_Detalle d3 JOIN Ventas v4 ON d3.id_venta = v4.id_venta WHERE d3.tipo = 'Producto' AND ${this.getDateFilter(startDate, endDate, 'v4')}), 0) as ingresosPorProductos;
 
             SELECT v.id_venta as id, v.fecha, 
                    COALESCE(p.nombre, s.nombre, 'Varios') as concepto,

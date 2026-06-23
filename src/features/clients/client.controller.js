@@ -3,8 +3,14 @@ const ClientModel = require('./client.model');
 class ClientController {
     static async getClients(req, res) {
         try {
+            if (req.user && req.user.rol === 'Cliente') {
+                await ClientModel.getOrCreateByUsuario(req.user.id);
+            }
             const clients = await ClientModel.getAll();
-            res.json({ success: true, data: clients });
+            const filtered = (req.user && req.user.rol === 'Cliente')
+                ? clients.filter(c => c.id_usuario === req.user.id)
+                : clients;
+            res.json({ success: true, data: filtered });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Error obteniendo clientes', error: error.message });
         }

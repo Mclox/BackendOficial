@@ -23,6 +23,11 @@ const checkPermission = (modulo, accion) => {
         if (req.user.rol === 'Administrador' || req.user.rol === 'Admin') {
             return next();
         }
+
+        // Permiso especial: El Cliente puede leer su propio perfil del módulo Clientes
+        if (req.user.rol === 'Cliente' && modulo === 'Clientes' && accion === 'leer') {
+            return next();
+        }
         
         try {
             const { poolPromise } = require('../config/db');

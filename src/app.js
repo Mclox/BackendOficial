@@ -1,4 +1,3 @@
-// src/app.js
 const express = require('express');
 const cors = require('cors');
 
@@ -7,7 +6,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
-
 
 app.get('/', (req, res) => {
     res.send('API de BarberSite V2 funcionando correctamente 💈');
@@ -22,7 +20,7 @@ app.use('/api/roles', require('./features/roles/role.routes'));
 app.use('/api/clients', require('./features/clients/client.routes'));
 app.use('/api/products', require('./features/products/product.routes'));
 app.use('/api/services', require('./features/services/service.routes'));
-app.use('/api/employees', require('./features/employees/employee.routes')); // <-- AGREGA ESTA LÍNEA
+app.use('/api/employees', require('./features/employees/employee.routes'));
 
 // --- MÓDULOS TRANSACCIONALES Y DE NEGOCIO ---
 app.use('/api/appointments', require('./features/appointments/appointment.routes'));
@@ -32,10 +30,7 @@ app.use('/api/product-entries', require('./features/product-entries/product-entr
 app.use('/api/dashboard', require('./features/dashboard/dashboard.routes'));
 app.use('/api/reports', require('./features/reports/reports.routes'));
 
-// --- MÓDULOS DESHABILITADOS (Fuera del alcance actual V2) ---
-// app.use('/api/suppliers', require('./features/suppliers/supplier.routes'));
-// app.use('/api/purchases', require('./features/purchases/purchase.routes'));
+// --- MÓDULOS DESHABILITADOS ---
 app.use('/api/stock-returns', require('./features/stock-returns/stock-return.routes'));
-// app.use('/api/supplier-returns', require('./features/supplier-returns/supp-return.routes'));
 
 module.exports = app;

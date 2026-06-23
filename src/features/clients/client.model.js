@@ -147,12 +147,38 @@ class ClientModel {
                     .input('id_u', sql.Int, id_usuario)
                     .query('DELETE FROM Usuarios WHERE id_usuario = @id_u');
             }
-
             await transaction.commit();
             return true;
         } catch (err) {
             await transaction.rollback();
             throw err;
+        }
+    }
+
+    static async getOrCreateByUsuario(id_usuario) {
+        const pool = await poolPromise;
+        const getRes = await pool.request()
+            .input('id_u', sql.Int, id_usuario)
+            .query('SELECT * FROM Clientes WHERE id_usuario = @id_u');
+            
+        if (getRes.recordset.length > 0) {
+            return;
+        }
+        
+        const userRes = await pool.request()
+            .input('id_u', sql.Int, id_usuario)
+            .query('SELECT nombre, email, telefono, tipo_documento, documento FROM Usuarios WHERE id_usuario = @id_u');
+            
+        if (userRes.recordset.length > 0) {
+            const u = userRes.recordset[0];
+            await this.create({
+                id_usuario,
+                nombre_invitado: null,
+                telefono_invitado: null,
+                email_invitado: null,
+                tipo_documento: u.tipo_documento,
+                documento: u.documento
+            });
         }
     }
 }

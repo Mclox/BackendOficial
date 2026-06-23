@@ -17,7 +17,7 @@ class ServiceModel {
 
     static async create(data) {
         const pool = await poolPromise;
-        const { nombre, precio_neto, iva_porcentaje, duracion_minutos, estado } = data;
+        const { nombre, precio_neto, iva_porcentaje, duracion_minutos, estado, descripcion } = data;
 
         const result = await pool.request()
             .input('nombre', sql.VarChar, nombre)
@@ -25,10 +25,11 @@ class ServiceModel {
             .input('iva', sql.Decimal(5,2), iva_porcentaje || 0.00)
             .input('duracion', sql.Int, duracion_minutos)
             .input('estado', sql.VarChar, estado || 'Activo')
+            .input('descripcion', sql.VarChar, descripcion || null)
             .query(`
                 DECLARE @newId INT = (SELECT ISNULL(MAX(id_servicio), 0) + 1 FROM Servicios);
-                INSERT INTO Servicios (id_servicio, nombre, precio_neto, iva_porcentaje, duracion_minutos, estado)
-                VALUES (@newId, @nombre, @pre_neto, @iva, @duracion, @estado);
+                INSERT INTO Servicios (id_servicio, nombre, precio_neto, iva_porcentaje, duracion_minutos, estado, descripcion)
+                VALUES (@newId, @nombre, @pre_neto, @iva, @duracion, @estado, @descripcion);
                 SELECT @newId AS insertId;
             `);
         return result.recordset[0].insertId;
@@ -36,7 +37,7 @@ class ServiceModel {
 
     static async update(id, data) {
         const pool = await poolPromise;
-        const { nombre, precio_neto, iva_porcentaje, duracion_minutos, estado } = data;
+        const { nombre, precio_neto, iva_porcentaje, duracion_minutos, estado, descripcion } = data;
 
         const result = await pool.request()
             .input('id', sql.Int, id)
@@ -45,11 +46,12 @@ class ServiceModel {
             .input('iva', sql.Decimal(5,2), iva_porcentaje || 0.00)
             .input('duracion', sql.Int, duracion_minutos)
             .input('estado', sql.VarChar, estado || 'Activo')
+            .input('descripcion', sql.VarChar, descripcion || null)
             .query(`
                 UPDATE Servicios 
                 SET nombre = @nombre, precio_neto = @pre_neto, 
                     iva_porcentaje = @iva, duracion_minutos = @duracion,
-                    estado = @estado
+                    estado = @estado, descripcion = @descripcion
                 WHERE id_servicio = @id
             `);
         return result.rowsAffected[0] > 0;

@@ -214,7 +214,30 @@ class AppointmentController {
 
     static async getAppointments(req, res) {
         try {
-            const data = await AppointmentModel.getAll();
+            let data = await AppointmentModel.getAll();
+            if (req.user && req.user.rol === 'Cliente') {
+                const pool = await poolPromise;
+                const clientRes = await pool.request()
+                    .input('id_u', sql.Int, req.user.id)
+                    .query('SELECT id_cliente FROM Clientes WHERE id_usuario = @id_u');
+                if (clientRes.recordset.length > 0) {
+                    const id_cliente = clientRes.recordset[0].id_cliente;
+                    data = data.filter(c => c.id_cliente === id_cliente);
+                } else {
+                    data = [];
+                }
+            } else if (req.user && req.user.rol === 'Barbero') {
+                const pool = await poolPromise;
+                const barberoRes = await pool.request()
+                    .input('id_u', sql.Int, req.user.id)
+                    .query('SELECT id_barbero FROM Barberos WHERE id_usuario = @id_u');
+                if (barberoRes.recordset.length > 0) {
+                    const id_barbero = barberoRes.recordset[0].id_barbero;
+                    data = data.filter(c => c.id_barbero === id_barbero);
+                } else {
+                    data = [];
+                }
+            }
             res.json({ success: true, data });
         } catch (error) { res.status(500).json({ error: error.message }); }
     }
