@@ -22,6 +22,7 @@
 // module.exports = ProductController;
 
 const ProductModel = require('./product.model');
+const NotificationService = require('../notifications/notification.service');
 
 class ProductController {
     static async getProducts(req, res) {
@@ -51,6 +52,12 @@ class ProductController {
                 productData.img = `/uploads/products/${req.file.filename}`;
             }
             const id = await ProductModel.create(productData);
+            await NotificationService.createNotification({
+                modulo: 'Productos',
+                accion: 'creacion',
+                descripcion: `Se creó el producto "${productData.nombre}" con stock de ${productData.stock || 0}.`,
+                req
+            });
             res.status(201).json({ success: true, message: 'Producto creado', data: { id_producto: id } });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Error creando producto', error: error.message });
@@ -65,6 +72,12 @@ class ProductController {
             }
             const updated = await ProductModel.update(req.params.id, productData);
             if (!updated) return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+            await NotificationService.createNotification({
+                modulo: 'Productos',
+                accion: 'edicion',
+                descripcion: `Se actualizó el producto "${productData.nombre}" (ID: ${req.params.id}).`,
+                req
+            });
             res.json({ success: true, message: 'Producto actualizado' });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Error actualizando producto', error: error.message });
@@ -75,6 +88,12 @@ class ProductController {
         try {
             const deleted = await ProductModel.delete(req.params.id);
             if (!deleted) return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+            await NotificationService.createNotification({
+                modulo: 'Productos',
+                accion: 'eliminacion',
+                descripcion: `Se eliminó el producto con ID ${req.params.id}.`,
+                req
+            });
             res.json({ success: true, message: 'Producto eliminado' });
         } catch (error) {
             if (error.number === 547) return res.status(400).json({ success: false, message: 'No se puede eliminar, el producto tiene historial (ej. Ventas o Compras).' });

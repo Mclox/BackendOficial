@@ -2,6 +2,7 @@ const AppointmentModel = require('./appointment.model');
 const ClientModel = require('../clients/client.model');
 const MailService = require('./mail.service');
 const { sql, poolPromise } = require('../../config/db');
+const NotificationService = require('../notifications/notification.service');
 
 class AppointmentController {
     static async getPublicBusySlots(req, res) {
@@ -194,17 +195,15 @@ class AppointmentController {
                 }
             }
 
-            // Llamar al servicio de correos sin esperar con await completo para responder rápido
-            MailService.sendConfirmationEmail({
-                email: clienteData.email,
-                clientName: clienteData.nombre,
-                serviceName: serviceNames,
-                barberName: barberName,
-                fecha: new Date(bookingData.fecha + 'T00:00:00').toLocaleDateString('es-ES', {
-                    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-                }),
-                hora: bookingData.hora_inicio
-            }).catch(e => console.error("Error al enviar confirmación por correo:", e));
+            // Enviar notificaciones por correo electrónico de forma asíncrona a cliente y barbero
+            MailService.sendNotificationOnCreation(newCitaId).catch(e => console.error("Error al enviar notificaciones de confirmación:", e));
+
+            await NotificationService.createNotification({
+                modulo: 'Citas',
+                accion: 'creacion',
+                descripcion: `Se reservó una cita pública para "${clienteData.nombre}" el ${bookingData.fecha} a las ${bookingData.hora_inicio}.`,
+                req
+            });
 
             res.status(201).json({ success: true, id_cita: newCitaId });
         } catch (error) {
@@ -245,6 +244,16 @@ class AppointmentController {
     static async createAppointment(req, res) {
         try {
             const id = await AppointmentModel.create(req.body);
+            
+            // Enviar notificaciones por correo electrónico de forma asíncrona a cliente y barbero
+            MailService.sendNotificationOnCreation(id).catch(e => console.error("Error al enviar notificaciones de confirmación:", e));
+
+            await NotificationService.createNotification({
+                modulo: 'Citas',
+                accion: 'creacion',
+                descripcion: `Se agendó una nueva cita (ID: ${id}) para la fecha ${req.body.fecha} a las ${req.body.hora_inicio}.`,
+                req
+            });
             res.status(201).json({ success: true, id_cita: id });
         } catch (error) { res.status(500).json({ error: error.message }); }
     }
@@ -253,6 +262,12 @@ class AppointmentController {
         try {
             const updated = await AppointmentModel.update(req.params.id, req.body);
             if (!updated) return res.status(404).json({ success: false, message: 'Cita no encontrada' });
+            await NotificationService.createNotification({
+                modulo: 'Citas',
+                accion: 'edicion',
+                descripcion: `Se actualizó la cita con ID ${req.params.id} (Fecha: ${req.body.fecha}).`,
+                req
+            });
             res.json({ success: true, message: 'Cita actualizada' });
         } catch (error) { res.status(500).json({ error: error.message }); }
     }
@@ -261,6 +276,12 @@ class AppointmentController {
         try {
             const { estado } = req.body;
             await AppointmentModel.updateStatus(req.params.id, estado);
+            await NotificationService.createNotification({
+                modulo: 'Citas',
+                accion: 'cambio_estado',
+                descripcion: `Se cambió el estado de la cita con ID ${req.params.id} a "${estado}".`,
+                req
+            });
             res.json({ success: true, message: 'Estado actualizado' });
         } catch (error) { res.status(500).json({ error: error.message }); }
     }
@@ -269,6 +290,12 @@ class AppointmentController {
         try {
             const deleted = await AppointmentModel.delete(req.params.id);
             if (!deleted) return res.status(404).json({ success: false, message: 'Cita no encontrada' });
+            await NotificationService.createNotification({
+                modulo: 'Citas',
+                accion: 'eliminacion',
+                descripcion: `Se eliminó/canceló la cita con ID ${req.params.id}.`,
+                req
+            });
             res.json({ success: true, message: 'Cita eliminada' });
         } catch (error) { res.status(500).json({ error: error.message }); }
     }

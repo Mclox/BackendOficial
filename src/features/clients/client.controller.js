@@ -1,4 +1,5 @@
 const ClientModel = require('./client.model');
+const NotificationService = require('../notifications/notification.service');
 
 class ClientController {
     static async getClients(req, res) {
@@ -29,6 +30,12 @@ class ClientController {
     static async createClient(req, res) {
         try {
             const id = await ClientModel.create(req.body);
+            await NotificationService.createNotification({
+                modulo: 'Clientes',
+                accion: 'creacion',
+                descripcion: `Se registró al cliente "${req.body.nombre_invitado || req.body.nombre}" (ID: ${id}).`,
+                req
+            });
             res.status(201).json({ success: true, message: 'Cliente creado', data: { id_cliente: id } });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Error creando cliente', error: error.message });
@@ -39,6 +46,12 @@ class ClientController {
         try {
             const updated = await ClientModel.update(req.params.id, req.body);
             if (!updated) return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
+            await NotificationService.createNotification({
+                modulo: 'Clientes',
+                accion: 'edicion',
+                descripcion: `Se actualizó la información del cliente "${req.body.nombre || req.params.id}" (ID: ${req.params.id}).`,
+                req
+            });
             res.json({ success: true, message: 'Cliente actualizado' });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Error actualizando cliente', error: error.message });
@@ -49,6 +62,12 @@ class ClientController {
         try {
             const deleted = await ClientModel.delete(req.params.id);
             if (!deleted) return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
+            await NotificationService.createNotification({
+                modulo: 'Clientes',
+                accion: 'eliminacion',
+                descripcion: `Se eliminó al cliente con ID ${req.params.id}.`,
+                req
+            });
             res.json({ success: true, message: 'Cliente eliminado' });
         } catch (error) {
             if (error.number === 547) return res.status(400).json({ success: false, message: 'No se puede eliminar, el cliente tiene Citas o Facturas asociadas.' });

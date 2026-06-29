@@ -29,6 +29,7 @@ app.use('/api/landing-config', require('./features/landing-config/landing.routes
 app.use('/api/product-entries', require('./features/product-entries/product-entries.routes'));
 app.use('/api/dashboard', require('./features/dashboard/dashboard.routes'));
 app.use('/api/reports', require('./features/reports/reports.routes'));
+app.use('/api/notifications', require('./features/notifications/notification.routes'));
 
 // --- MÓDULOS DESHABILITADOS ---
 app.use('/api/stock-returns', require('./features/stock-returns/stock-return.routes'));

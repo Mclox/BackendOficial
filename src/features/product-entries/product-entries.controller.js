@@ -1,4 +1,5 @@
 const ProductEntryModel = require('./product-entries.model');
+const NotificationService = require('../notifications/notification.service');
 
 const getEntries = async (req, res) => {
     try {
@@ -22,6 +23,12 @@ const createEntry = async (req, res) => {
         }
 
         const newEntry = await ProductEntryModel.create({ id_producto, id_usuario, cantidad, observaciones });
+        await NotificationService.createNotification({
+            modulo: 'Entradas de Productos',
+            accion: 'creacion',
+            descripcion: `Se registró una entrada de ${cantidad} unidades para el producto ID ${id_producto}.`,
+            req
+        });
         res.status(201).json({ success: true, data: newEntry, message: 'Entrada registrada y stock actualizado' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -42,6 +49,13 @@ const annulEntry = async (req, res) => {
         if (!annulledEntry) {
             return res.status(404).json({ success: false, message: 'Entrada no encontrada o ya está anulada' });
         }
+
+        await NotificationService.createNotification({
+            modulo: 'Entradas de Productos',
+            accion: 'edicion',
+            descripcion: `Se anuló la entrada de producto ID ${id} por motivo: "${motivo_anulacion}".`,
+            req
+        });
 
         res.json({ success: true, data: annulledEntry, message: 'Entrada anulada y stock revertido' });
     } catch (error) {

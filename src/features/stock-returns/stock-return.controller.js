@@ -1,5 +1,6 @@
 // Corrección: Importamos el modelo en singular
 const StockReturnModel = require('./stock-return.model');
+const NotificationService = require('../notifications/notification.service');
 
 class StockReturnController {
     static async getReturns(req, res) {
@@ -31,6 +32,13 @@ class StockReturnController {
                 }
             }
 
+            await NotificationService.createNotification({
+                modulo: 'Devoluciones',
+                accion: 'creacion',
+                descripcion: `Se registró una devolución para la venta ID ${id_venta}.`,
+                req
+            });
+
             res.status(201).json({ success: true, message: "Devolución registrada y stock actualizado" });
         } catch (error) { res.status(500).json({ error: error.message }); }
     }
@@ -45,6 +53,12 @@ class StockReturnController {
             if (!updated) {
                 return res.status(404).json({ success: false, message: "Devolución no encontrada" });
             }
+            await NotificationService.createNotification({
+                modulo: 'Devoluciones',
+                accion: 'cambio_estado',
+                descripcion: `Se cambió el estado de la devolución con ID ${req.params.id} a "${estado}".`,
+                req
+            });
             res.json({ success: true, message: "Estado de devolución actualizado" });
         } catch (error) { res.status(500).json({ error: error.message }); }
     }

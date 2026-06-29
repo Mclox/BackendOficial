@@ -1,4 +1,5 @@
 const SaleModel = require('./sale.model');
+const NotificationService = require('../notifications/notification.service');
 
 class SaleController {
     static async getSales(req, res) {
@@ -33,6 +34,13 @@ class SaleController {
                     await SaleModel.createDetail(id_venta, det);
                 }
             }
+
+            await NotificationService.createNotification({
+                modulo: 'Ventas',
+                accion: 'creacion',
+                descripcion: `Se registró una nueva venta con ID ${id_venta} (Método de pago: ${metodo_pago}).`,
+                req
+            });
 
             res.status(201).json({ success: true, message: "Venta registrada con éxito", id_venta });
         } catch (error) { res.status(500).json({ error: error.message }); }
