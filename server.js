@@ -45,19 +45,21 @@
 
 require('dotenv').config();
 const app = require('./src/app');
-// Importar la base de datos con el poolPromise de siempre
 const { poolPromise } = require('./src/config/db'); 
-const { startReminderScheduler } = require('./src/features/appointments/reminder.scheduler');
+
+// Comentamos esto temporalmente para que no de errores de SQL Server 
+// mientras migramos módulo por módulo.
+// const { startReminderScheduler } = require('./src/features/appointments/reminder.scheduler');
 
 const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     
-    // Iniciar planificador de recordatorios después de conectar a la BD
     poolPromise.then(() => {
-        startReminderScheduler();
+        console.log('📡 Sistema listo para recibir peticiones.');
+        // startReminderScheduler(); // Se activará cuando lleguemos al módulo de Citas
     }).catch(err => {
-        console.error('No se pudo iniciar el planificador de recordatorios:', err.message);
+        console.error('No se pudo conectar a la BD:', err.message);
     });
 });
