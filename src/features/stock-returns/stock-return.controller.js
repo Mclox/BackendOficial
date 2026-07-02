@@ -45,11 +45,12 @@ class StockReturnController {
 
     static async updateReturnStatus(req, res) {
         try {
-            const { estado } = req.body;
+            const { estado, motivo } = req.body;
             if (!estado) {
                 return res.status(400).json({ success: false, message: "El estado es requerido" });
             }
-            const updated = await StockReturnModel.updateStatus(req.params.id, estado);
+            const id_usuario = req.user.id;
+            const updated = await StockReturnModel.updateStatus(req.params.id, estado, id_usuario, motivo);
             if (!updated) {
                 return res.status(404).json({ success: false, message: "Devolución no encontrada" });
             }
@@ -59,7 +60,7 @@ class StockReturnController {
                 descripcion: `Se cambió el estado de la devolución con ID ${req.params.id} a "${estado}".`,
                 req
             });
-            res.json({ success: true, message: "Estado de devolución actualizado" });
+            res.json({ success: true, message: `Estado de devolución actualizado a ${estado}` });
         } catch (error) { res.status(500).json({ error: error.message }); }
     }
 }
