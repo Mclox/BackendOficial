@@ -1,176 +1,157 @@
-// const { sql, poolPromise } = require('../../config/db');
-
-// class ClientModel {
-//     static async getAll() {
-//         const pool = await poolPromise;
-//         return (await pool.request().query('SELECT * FROM Clientes')).recordset;
-//     }
-
-//     static async create(data) {
-//         const pool = await poolPromise;
-//         const { id_usuario, nombre, telefono, email } = data;
-//         const result = await pool.request()
-//             .input('id_u', sql.Int, id_usuario || null)
-//             .input('nom', sql.VarChar, nombre)
-//             .input('tel', sql.VarChar, telefono)
-//             .input('eml', sql.VarChar, email)
-//             .query(`
-//                 DECLARE @newId INT = (SELECT ISNULL(MAX(id_cliente), 0) + 1 FROM Clientes);
-//                 INSERT INTO Clientes (id_cliente, id_usuario, nombre, telefono, email, estado)
-//                 VALUES (@newId, @id_u, @nom, @tel, @eml, 'Activo');
-//                 SELECT @newId as id;
-//             `);
-//         return result.recordset[0].id;
-//     }
-// }
-// module.exports = ClientModel;
-
-const { sql, poolPromise } = require('../../config/db');
+const db = require('../../config/db');
 
 class ClientModel {
+    /**
+     * Obtiene todos los clientes cruzando los datos con Usuarios (si es registrado) o trayendo los datos de invitado.
+     */
     static async getAll() {
-        const pool = await poolPromise;
-        // Unimos con Usuarios para obtener los datos si es registrado, sino mostramos los de invitado
-        const result = await pool.request().query(`
+        const query = `
             SELECT c.id_cliente, c.id_usuario, 
-                   ISNULL(u.nombre, c.nombre_invitado) as nombre_final,
-                   ISNULL(u.telefono, c.telefono_invitado) as telefono_final,
-                   ISNULL(u.email, c.email_invitado) as email_final,
-                   ISNULL(u.tipo_documento, c.tipo_documento) as tipo_documento,
-                   ISNULL(u.documento, c.documento) as documento,
+                   COALESCE(u.nombre, c.nombre_invitado) as nombre_final,
+                   COALESCE(u.telefono, c.telefono_invitado) as telefono_final,
+                   COALESCE(u.email, c.email_invitado) as email_final,
+                   COALESCE(u.tipo_documento, c.tipo_documento) as tipo_documento,
+                   COALESCE(u.documento, c.documento) as documento,
                    u.direccion,
-                   ISNULL(u.estado, 'Activo') as estado
+                   COALESCE(u.estado, 'Activo') as estado
             FROM Clientes c
             LEFT JOIN Usuarios u ON c.id_usuario = u.id_usuario
-        `);
-        return result.recordset;
+            ORDER BY c.id_cliente ASC
+        `;
+        const result = await db.query(query);
+        return result.rows;
     }
 
+    /**
+     * Obtiene un cliente específico por ID.
+     */
+    static async getById(id) {
+        const query = `
+            SELECT c.id_cliente, c.id_usuario, 
+                   COALESCE(u.nombre, c.nombre_invitado) as nombre_final,
+                   COALESCE(u.telefono, c.telefono_invitado) as telefono_final,
+                   COALESCE(u.email, c.email_invitado) as email_final,
+                   COALESCE(u.tipo_documento, c.tipo_documento) as tipo_documento,
+                   COALESCE(u.documento, c.documento) as documento,
+                   u.direccion,
+                   COALESCE(u.estado, 'Activo') as estado
+            FROM Clientes c
+            LEFT JOIN Usuarios u ON c.id_usuario = u.id_usuario
+            WHERE c.id_cliente = $1
+        `;
+        const result = await db.query(query, [id]);
+        return result.rows[0];
+    }
+
+    /**
+     * Registra un nuevo cliente (invitado o asociado a un usuario).
+     */
     static async create(data) {
-        const pool = await poolPromise;
         const { id_usuario, nombre_invitado, telefono_invitado, email_invitado, tipo_documento, documento } = data;
 
-        const result = await pool.request()
-            .input('id_u', sql.Int, id_usuario || null)
-            .input('nom_i', sql.VarChar, nombre_invitado || null)
-            .input('tel_i', sql.VarChar, telefono_invitado || null)
-            .input('eml_i', sql.VarChar, email_invitado || null)
-            .input('tipo_doc', sql.VarChar, tipo_documento || null)
-            .input('doc', sql.VarChar, documento || null)
-            .query(`
-                DECLARE @newId INT = (SELECT ISNULL(MAX(id_cliente), 0) + 1 FROM Clientes);
-                INSERT INTO Clientes (id_cliente, id_usuario, nombre_invitado, telefono_invitado, email_invitado, tipo_documento, documento)
-                VALUES (@newId, @id_u, @nom_i, @tel_i, @eml_i, @tipo_doc, @doc);
-                SELECT @newId as id;
-            `);
-        return result.recordset[0].id;
+        const query = `
+            INSERT INTO Clientes (id_usuario, nombre_invitado, telefono_invitado, email_invitado, tipo_documento, documento)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id_cliente as id
+        `;
+        
+        const values = [
+            id_usuario || null, 
+            nombre_invitado || null, 
+            telefono_invitado || null, 
+            email_invitado || null, 
+            tipo_documento || null, 
+            documento || null
+        ];
+        
+        const result = await db.query(query, values);
+        return result.rows[0].id;
     }
 
+    /**
+     * Actualiza un cliente. Si tiene usuario asociado, actualiza la tabla Usuarios mediante una transacción.
+     */
     static async update(id, data) {
-        const pool = await poolPromise;
         const { id_usuario, nombre, telefono, email, tipo_documento, documento, direccion, contrasena } = data;
         
-        // Si el cliente está registrado (tiene id_usuario), actualizamos sus datos en la tabla Usuarios
         if (id_usuario) {
-            const transaction = new sql.Transaction(pool);
-            await transaction.begin();
+            const client = await db.pool.connect();
             try {
-                const reqUser = new sql.Request(transaction);
-                reqUser
-                    .input('id_u', sql.Int, id_usuario)
-                    .input('nom', sql.VarChar, nombre)
-                    .input('tel', sql.VarChar, telefono)
-                    .input('eml', sql.VarChar, email)
-                    .input('tipo_doc', sql.VarChar, tipo_documento || 'CC')
-                    .input('doc', sql.VarChar, documento || null)
-                    .input('dir', sql.VarChar, direccion || null);
-                
+                await client.query('BEGIN');
+
                 let queryUser = `
                     UPDATE Usuarios 
-                    SET nombre = @nom, telefono = @tel, email = @eml, tipo_documento = @tipo_doc, documento = @doc, direccion = @dir
+                    SET nombre = $1, telefono = $2, email = $3, tipo_documento = $4, documento = $5, direccion = $6
                 `;
+                const valuesUser = [nombre, telefono, email, tipo_documento || 'CC', documento || null, direccion || null];
                 
                 if (contrasena && contrasena.trim()) {
-                    reqUser.input('pwd', sql.VarChar, contrasena);
-                    queryUser += ", contrasena = @pwd";
+                    valuesUser.push(contrasena);
+                    queryUser += `, contrasena = $${valuesUser.length}`;
                 }
+
+                valuesUser.push(id_usuario);
+                queryUser += ` WHERE id_usuario = $${valuesUser.length}`;
+
+                await client.query(queryUser, valuesUser);
                 
-                queryUser += " WHERE id_usuario = @id_u";
-                await reqUser.query(queryUser);
-                
-                await transaction.commit();
+                await client.query('COMMIT');
                 return true;
             } catch (err) {
-                await transaction.rollback();
+                await client.query('ROLLBACK');
                 throw err;
+            } finally {
+                client.release();
             }
         } else {
-            // Si es un invitado, actualizamos los datos de invitado en la tabla Clientes
-            const result = await pool.request()
-                .input('id', sql.Int, id)
-                .input('nom', sql.VarChar, nombre)
-                .input('tel', sql.VarChar, telefono)
-                .input('eml', sql.VarChar, email)
-                .query(`
-                    UPDATE Clientes 
-                    SET nombre_invitado = @nom, telefono_invitado = @tel, email_invitado = @eml
-                    WHERE id_cliente = @id
-                `);
-            return result.rowsAffected[0] > 0;
+            const query = `
+                UPDATE Clientes 
+                SET nombre_invitado = $1, telefono_invitado = $2, email_invitado = $3
+                WHERE id_cliente = $4
+            `;
+            const result = await db.query(query, [nombre, telefono, email, id]);
+            return result.rowCount > 0;
         }
     }
 
+    /**
+     * Elimina un cliente. Si tiene usuario, también lo borra en cascada mediante una transacción.
+     */
     static async delete(id) {
-        const pool = await poolPromise;
-        
-        // Obtener el id_usuario del cliente para eliminarlo también de Usuarios si es registrado
-        const getRes = await pool.request()
-            .input('id', sql.Int, id)
-            .query('SELECT id_usuario FROM Clientes WHERE id_cliente = @id');
-        
-        if (getRes.recordset.length === 0) return false;
-        const id_usuario = getRes.recordset[0].id_usuario;
+        const getRes = await db.query('SELECT id_usuario FROM Clientes WHERE id_cliente = $1', [id]);
+        if (getRes.rows.length === 0) return false;
+        const id_usuario = getRes.rows[0].id_usuario;
 
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
+        const client = await db.pool.connect();
         try {
-            // 1. Eliminar de Clientes
-            const reqCli = new sql.Request(transaction);
-            await reqCli
-                .input('id', sql.Int, id)
-                .query('DELETE FROM Clientes WHERE id_cliente = @id');
+            await client.query('BEGIN');
 
-            // 2. Si tenía usuario, eliminar de Usuarios
+            await client.query('DELETE FROM Clientes WHERE id_cliente = $1', [id]);
+
             if (id_usuario) {
-                const reqUser = new sql.Request(transaction);
-                await reqUser
-                    .input('id_u', sql.Int, id_usuario)
-                    .query('DELETE FROM Usuarios WHERE id_usuario = @id_u');
+                await client.query('DELETE FROM Usuarios WHERE id_usuario = $1', [id_usuario]);
             }
-            await transaction.commit();
+
+            await client.query('COMMIT');
             return true;
         } catch (err) {
-            await transaction.rollback();
+            await client.query('ROLLBACK');
             throw err;
+        } finally {
+            client.release();
         }
     }
 
+    /**
+     * Helper para autocompletar el perfil de cliente cuando un usuario se registra.
+     */
     static async getOrCreateByUsuario(id_usuario) {
-        const pool = await poolPromise;
-        const getRes = await pool.request()
-            .input('id_u', sql.Int, id_usuario)
-            .query('SELECT * FROM Clientes WHERE id_usuario = @id_u');
-            
-        if (getRes.recordset.length > 0) {
-            return;
-        }
+        const getRes = await db.query('SELECT * FROM Clientes WHERE id_usuario = $1', [id_usuario]);
+        if (getRes.rows.length > 0) return;
         
-        const userRes = await pool.request()
-            .input('id_u', sql.Int, id_usuario)
-            .query('SELECT nombre, email, telefono, tipo_documento, documento FROM Usuarios WHERE id_usuario = @id_u');
-            
-        if (userRes.recordset.length > 0) {
-            const u = userRes.recordset[0];
+        const userRes = await db.query('SELECT nombre, email, telefono, tipo_documento, documento FROM Usuarios WHERE id_usuario = $1', [id_usuario]);
+        if (userRes.rows.length > 0) {
+            const u = userRes.rows[0];
             await this.create({
                 id_usuario,
                 nombre_invitado: null,
@@ -182,4 +163,5 @@ class ClientModel {
         }
     }
 }
+
 module.exports = ClientModel;

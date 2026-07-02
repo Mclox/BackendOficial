@@ -3,28 +3,23 @@ const cors = require('cors');
 
 const app = express();
 
-// Middlewares básicos
 app.use(cors());
 app.use(express.json());
-
-// Servir archivos estáticos (imágenes de productos/perfil)
 app.use('/uploads', express.static('uploads'));
 
-// Ruta de bienvenida para verificar que el servidor vive
 app.get('/', (req, res) => {
     res.send('💈 API de BarberSite V2 - Migración a PostgreSQL en curso... Melo! 💈');
 });
 
-// --- MÓDULOS MIGRADOS Y FUNCIONALES (PostgreSQL) ---
-// Asegúrate de que la carpeta 'users' esté dentro de 'features'
+// --- MÓDULOS MIGRADOS Y FUNCIONALES ---
 app.use('/api/auth', require('./features/auth/auth.routes'));
 app.use('/api/users', require('./features/users/user.routes'));
 app.use('/api/roles', require('./features/roles/role.routes'));
 app.use('/api/notifications', require('./features/notifications/notification.routes'));
+app.use('/api/clients', require('./features/clients/client.routes')); // <--- ¡HABILITADO!
 
-// --- MÓDULOS EN ESPERA DE MIGRACIÓN (Comentados para evitar que el servidor explote) ---
+// --- MÓDULOS EN ESPERA DE MIGRACIÓN ---
 /*
-app.use('/api/clients', require('./features/clients/client.routes'));
 app.use('/api/products', require('./features/products/product.routes'));
 app.use('/api/services', require('./features/services/service.routes'));
 app.use('/api/employees', require('./features/employees/employee.routes'));

@@ -70,7 +70,10 @@ class ClientController {
             });
             res.json({ success: true, message: 'Cliente eliminado' });
         } catch (error) {
-            if (error.number === 547) return res.status(400).json({ success: false, message: 'No se puede eliminar, el cliente tiene Citas o Facturas asociadas.' });
+            // Código 23503 en Postgres para FK violation (Citas o Facturas asociadas)
+            if (error.code === '23503') {
+                return res.status(400).json({ success: false, message: 'No se puede eliminar, el cliente tiene Citas o Facturas asociadas.' });
+            }
             res.status(500).json({ success: false, message: 'Error eliminando cliente', error: error.message });
         }
     }

@@ -1,11 +1,13 @@
 const jwt = require('jsonwebtoken');
+const db = require('../config/db');
 
 const verifyToken = (req, res, next) => {
-    const token = req.headers['authorization'];
-    if (!token) return res.status(403).json({ success: false, message: 'No se proporcionó un token' });
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(403).json({ success: false, message: 'No se proporcionó un token' });
 
+    const token = authHeader.split(" ")[1];
     try {
-        const decoded = jwt.verify(token.split(" ")[1], 'SECRET_KEY_BARBERSITE');
+        const decoded = jwt.verify(token, 'SECRET_KEY_BARBERSITE');
         req.user = decoded;
         next();
     } catch (error) {
@@ -19,31 +21,29 @@ const checkPermission = (modulo, accion) => {
             return res.status(401).json({ success: false, message: 'No autenticado' });
         }
         
-        // Admin / Administrador siempre tiene todos los permisos
+        // El Administrador o Admin siempre tiene acceso a todo
         if (req.user.rol === 'Administrador' || req.user.rol === 'Admin') {
             return next();
         }
 
-        // Permiso especial: El Cliente puede leer su propio perfil del módulo Clientes
+        // El Cliente puede leer su propio perfil del módulo Clientes
         if (req.user.rol === 'Cliente' && modulo === 'Clientes' && accion === 'leer') {
             return next();
         }
         
         try {
-            const { poolPromise } = require('../config/db');
-            const pool = await poolPromise;
-            
-            // Buscar el rol y sus permisos
-            const result = await pool.request()
-                .input('rol_nombre', req.user.rol)
-                .query("SELECT permisos FROM Roles WHERE nombre = @rol_nombre AND estado = 'Activo'");
+            // Buscamos el rol en PostgreSQL usando db.query
+            const result = await db.query(
+                "SELECT permisos FROM Roles WHERE nombre = $1 AND estado = 'Activo'",
+                [req.user.rol]
+            );
                 
-            if (result.recordset.length === 0) {
+            if (result.rows.length === 0) {
                 return res.status(403).json({ success: false, message: 'Rol no encontrado o inactivo' });
             }
             
-            const role = result.recordset[0];
-            const permisos = role.permisos ? JSON.parse(role.permisos) : [];
+            const role = result.rows[0];
+            const permisos = role.permisos ? (typeof role.permisos === 'string' ? JSON.parse(role.permisos) : role.permisos) : [];
             
             // Buscar el permiso para el módulo
             const permiso = permisos.find(p => p.modulo.toLowerCase() === modulo.toLowerCase());
