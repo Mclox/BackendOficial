@@ -11,11 +11,8 @@ const getEntries = async (req, res) => {
 };
 
 const createEntry = async (req, res) => {
-    console.log("Usuario desde token:", req.user); // <--- AGREGA ESTO
     try {
         const { id_producto, cantidad, observaciones } = req.body;
-        // El id_usuario viene inyectado del token JWT por el middleware de autenticación
-        // Por esto (que coincide con el objeto 'id' que viene del JWT):
         const id_usuario = req.user.id;
 
         if (!id_producto || !cantidad || cantidad <= 0) {
@@ -44,9 +41,9 @@ const annulEntry = async (req, res) => {
             return res.status(400).json({ success: false, message: 'El motivo de anulación es obligatorio' });
         }
 
-        const annulledEntry = await ProductEntryModel.annul(id, motivo_anulacion);
+        const annulnedEntry = await ProductEntryModel.annul(id, motivo_anulacion);
         
-        if (!annulledEntry) {
+        if (!annulnedEntry) {
             return res.status(404).json({ success: false, message: 'Entrada no encontrada o ya está anulada' });
         }
 
@@ -57,7 +54,7 @@ const annulEntry = async (req, res) => {
             req
         });
 
-        res.json({ success: true, data: annulledEntry, message: 'Entrada anulada y stock revertido' });
+        res.json({ success: true, data: annulnedEntry, message: 'Entrada anulada y stock revertido' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

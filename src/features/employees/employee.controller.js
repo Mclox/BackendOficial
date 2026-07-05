@@ -6,7 +6,9 @@ class EmployeeController {
         try {
             const data = await EmployeeModel.getAll();
             res.json({ success: true, data });
-        } catch (error) { res.status(500).json({ error: error.message }); }
+        } catch (error) { 
+            res.status(500).json({ success: false, error: error.message }); 
+        }
     }
 
     static async createEmployee(req, res) {
@@ -15,11 +17,13 @@ class EmployeeController {
             await NotificationService.createNotification({
                 modulo: 'Empleados',
                 accion: 'creacion',
-                descripcion: `Se registró al nuevo empleado/barbero (ID de usuario: ${req.body.id_usuario}).`,
+                descripcion: `Se registró al nuevo empleado/barbero "${req.body.primer_nombre} ${req.body.primer_apellido}" (ID Barbero: ${id}).`,
                 req
             });
             res.status(201).json({ success: true, id_empleado: id });
-        } catch (error) { res.status(500).json({ error: error.message }); }
+        } catch (error) { 
+            res.status(500).json({ success: false, error: error.message }); 
+        }
     }
 
     static async updateEmployee(req, res) {
@@ -32,7 +36,9 @@ class EmployeeController {
                 req
             });
             res.json({ success: true, message: 'Actualizado correctamente' });
-        } catch (error) { res.status(500).json({ error: error.message }); }
+        } catch (error) { 
+            res.status(500).json({ success: false, error: error.message }); 
+        }
     }
 
     static async toggleStatus(req, res) {
@@ -46,7 +52,10 @@ class EmployeeController {
                 req
             });
             res.json({ success: true, message: 'Estado actualizado' });
-        } catch (error) { res.status(500).json({ error: error.message }); }
+        } catch (error) { 
+            res.status(500).json({ success: false, error: error.message }); 
+        }
     }
 }
+
 module.exports = EmployeeController;

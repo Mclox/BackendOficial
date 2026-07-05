@@ -1,68 +1,66 @@
-const { sql, poolPromise } = require('../../config/db');
+const db = require('../../config/db');
 
 class ServiceModel {
     static async getAll() {
-        const pool = await poolPromise;
-        const result = await pool.request().query('SELECT * FROM Servicios');
-        return result.recordset;
+        const result = await db.query('SELECT * FROM Servicios ORDER BY id_servicio ASC');
+        return result.rows;
     }
 
     static async getById(id) {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query('SELECT * FROM Servicios WHERE id_servicio = @id');
-        return result.recordset[0];
+        const result = await db.query('SELECT * FROM Servicios WHERE id_servicio = $1', [id]);
+        return result.rows[0];
     }
 
     static async create(data) {
-        const pool = await poolPromise;
         const { nombre, precio_neto, iva_porcentaje, duracion_minutos, estado, descripcion } = data;
 
-        const result = await pool.request()
-            .input('nombre', sql.VarChar, nombre)
-            .input('pre_neto', sql.Decimal(12,2), precio_neto)
-            .input('iva', sql.Decimal(5,2), iva_porcentaje || 0.00)
-            .input('duracion', sql.Int, duracion_minutos)
-            .input('estado', sql.VarChar, estado || 'Activo')
-            .input('descripcion', sql.VarChar, descripcion || null)
-            .query(`
-                DECLARE @newId INT = (SELECT ISNULL(MAX(id_servicio), 0) + 1 FROM Servicios);
-                INSERT INTO Servicios (id_servicio, nombre, precio_neto, iva_porcentaje, duracion_minutos, estado, descripcion)
-                VALUES (@newId, @nombre, @pre_neto, @iva, @duracion, @estado, @descripcion);
-                SELECT @newId AS insertId;
-            `);
-        return result.recordset[0].insertId;
+        const query = `
+            INSERT INTO Servicios (nombre, precio_neto, iva_porcentaje, duracion_minutos, estado, descripcion)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id_servicio
+        `;
+        
+        const values = [
+            nombre,
+            precio_neto,
+            iva_porcentaje !== undefined ? iva_porcentaje : 0.00,
+            duracion_minutos,
+            estado || 'Activo',
+            descripcion || null
+        ];
+
+        const result = await db.query(query, values);
+        return result.rows[0].id_servicio;
     }
 
     static async update(id, data) {
-        const pool = await poolPromise;
         const { nombre, precio_neto, iva_porcentaje, duracion_minutos, estado, descripcion } = data;
 
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .input('nombre', sql.VarChar, nombre)
-            .input('pre_neto', sql.Decimal(12,2), precio_neto)
-            .input('iva', sql.Decimal(5,2), iva_porcentaje || 0.00)
-            .input('duracion', sql.Int, duracion_minutos)
-            .input('estado', sql.VarChar, estado || 'Activo')
-            .input('descripcion', sql.VarChar, descripcion || null)
-            .query(`
-                UPDATE Servicios 
-                SET nombre = @nombre, precio_neto = @pre_neto, 
-                    iva_porcentaje = @iva, duracion_minutos = @duracion,
-                    estado = @estado, descripcion = @descripcion
-                WHERE id_servicio = @id
-            `);
-        return result.rowsAffected[0] > 0;
+        const query = `
+            UPDATE Servicios 
+            SET nombre = $1, precio_neto = $2, iva_porcentaje = $3, 
+                duracion_minutos = $4, estado = $5, descripcion = $6
+            WHERE id_servicio = $7
+        `;
+        
+        const values = [
+            nombre,
+            precio_neto,
+            iva_porcentaje !== undefined ? iva_porcentaje : 0.00,
+            duracion_minutos,
+            estado || 'Activo',
+            descripcion || null,
+            id
+        ];
+
+        const result = await db.query(query, values);
+        return result.rowCount > 0;
     }
 
     static async delete(id) {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query('DELETE FROM Servicios WHERE id_servicio = @id');
-        return result.rowsAffected[0] > 0;
+        const result = await db.query('DELETE FROM Servicios WHERE id_servicio = $1', [id]);
+        return result.rowCount > 0;
     }
 }
+
 module.exports = ServiceModel;

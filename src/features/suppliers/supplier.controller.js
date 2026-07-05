@@ -25,7 +25,7 @@ class SupplierController {
             const newId = await SupplierModel.create(req.body);
             res.status(201).json({ success: true, message: 'Proveedor creado', data: { id_proveedor: newId } });
         } catch (error) {
-            if (error.number === 2627) return res.status(400).json({ success: false, message: 'El Documento ya existe en otro proveedor' });
+            if (error.code === '23505') return res.status(400).json({ success: false, message: 'El Documento ya existe en otro proveedor' });
             res.status(500).json({ success: false, message: 'Error creando proveedor', error: error.message });
         }
     }
@@ -36,7 +36,7 @@ class SupplierController {
             if (!updated) return res.status(404).json({ success: false, message: 'Proveedor no encontrado' });
             res.status(200).json({ success: true, message: 'Proveedor actualizado' });
         } catch (error) {
-            if (error.number === 2627) return res.status(400).json({ success: false, message: 'El Documento ya existe en otro proveedor' });
+            if (error.code === '23505') return res.status(400).json({ success: false, message: 'El Documento ya existe en otro proveedor' });
             res.status(500).json({ success: false, message: 'Error actualizando proveedor', error: error.message });
         }
     }
@@ -47,9 +47,10 @@ class SupplierController {
             if (!deleted) return res.status(404).json({ success: false, message: 'Proveedor no encontrado' });
             res.status(200).json({ success: true, message: 'Proveedor eliminado' });
         } catch (error) {
-            if (error.number === 547) return res.status(400).json({ success: false, message: 'No se puede eliminar, tiene registros asociados.' });
+            if (error.code === '23503') return res.status(400).json({ success: false, message: 'No se puede eliminar, tiene registros asociados.' });
             res.status(500).json({ success: false, message: 'Error eliminando proveedor', error: error.message });
         }
     }
 }
+
 module.exports = SupplierController;

@@ -1,22 +1,20 @@
 const AppointmentModel = require('./appointment.model');
 const ClientModel = require('../clients/client.model');
 const MailService = require('./mail.service');
-const { sql, poolPromise } = require('../../config/db');
+const db = require('../../config/db');
 const NotificationService = require('../notifications/notification.service');
 
 class AppointmentController {
     static async getPublicBusySlots(req, res) {
         try {
-            const pool = await poolPromise;
-            const result = await pool.request().query(`
+            const result = await db.query(`
                 SELECT fecha, hora_inicio, hora_fin, id_barbero
                 FROM Citas
                 WHERE estado NOT IN ('cancelada', 'cancelado')
             `);
-            const data = result.recordset.map(row => {
+            const data = result.rows.map(row => {
                 const dateStr = row.fecha ? new Date(row.fecha).toISOString().split('T')[0] : '';
                 
-                // Formatear hora_inicio para quitar milisegundos/segundos si vienen de la BD
                 let timeStr = '';
                 if (row.hora_inicio) {
                     if (row.hora_inicio instanceof Date) {
@@ -24,13 +22,11 @@ class AppointmentController {
                     } else if (typeof row.hora_inicio === 'object' && row.hora_inicio.toISOString) {
                         timeStr = new Date(row.hora_inicio).toTimeString().substring(0, 5);
                     } else {
-                        // Es un objeto time de mssql o string
                         const match = row.hora_inicio.toString().match(/\d{2}:\d{2}/);
                         timeStr = match ? match[0] : row.hora_inicio.toString().substring(0, 5);
                     }
                 }
 
-                // Formatear hora_fin
                 let endTimeStr = '';
                 if (row.hora_fin) {
                     if (row.hora_fin instanceof Date) {
@@ -59,13 +55,10 @@ class AppointmentController {
     static async createPublicBooking(req, res) {
         const { clienteData, bookingData } = req.body;
         try {
-            const pool = await poolPromise;
-
             if (!clienteData || !bookingData) {
                 return res.status(400).json({ success: false, message: 'Datos incompletos para procesar la reserva.' });
             }
 
-            // Validar que la fecha y hora no sean en el pasado
             const today = new Date();
             const year = today.getFullYear();
             const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -87,46 +80,37 @@ class AppointmentController {
 
             // 1. Validar conflicto de horarios
             if (bookingData.id_barbero && parseInt(bookingData.id_barbero) !== 0) {
-                // Barbero específico
-                const conflictRes = await pool.request()
-                    .input('id_barbero', sql.Int, parseInt(bookingData.id_barbero))
-                    .input('fecha', sql.Date, bookingData.fecha)
-                    .input('start', sql.VarChar, bookingData.hora_inicio)
-                    .input('end', sql.VarChar, bookingData.hora_fin)
-                    .query(`
-                        SELECT COUNT(*) as count 
-                        FROM Citas 
-                        WHERE id_barbero = @id_barbero 
-                          AND fecha = @fecha 
-                          AND estado NOT IN ('cancelada', 'cancelado')
-                          AND CAST(hora_inicio AS TIME) < CAST(@end AS TIME)
-                          AND CAST(hora_fin AS TIME) > CAST(@start AS TIME)
-                    `);
-                if (conflictRes.recordset[0].count > 0) {
+                const conflictRes = await db.query(`
+                    SELECT COUNT(*)::int as count 
+                    FROM Citas 
+                    WHERE id_barbero = $1 
+                      AND fecha = $2 
+                      AND estado NOT IN ('cancelada', 'cancelado')
+                      AND hora_inicio::time < $3::time
+                      AND hora_fin::time > $4::time
+                `, [parseInt(bookingData.id_barbero), bookingData.fecha, bookingData.hora_fin, bookingData.hora_inicio]);
+                
+                if (conflictRes.rows[0].count > 0) {
                     return res.status(400).json({ success: false, message: 'El barbero seleccionado no está disponible en este horario.' });
                 }
             } else {
-                // "Cualquier barbero disponible": validar que haya al menos un barbero activo libre
-                const checkFreeRes = await pool.request()
-                    .input('fecha', sql.Date, bookingData.fecha)
-                    .input('start', sql.VarChar, bookingData.hora_inicio)
-                    .input('end', sql.VarChar, bookingData.hora_fin)
-                    .query(`
-                        SELECT 
-                            (SELECT COUNT(*) FROM Barberos WHERE estado = 'Activo') as total_active,
-                            (SELECT COUNT(*) FROM Barberos b 
-                             WHERE b.estado = 'Activo' 
-                               AND b.id_barbero NOT IN (
-                                   SELECT id_barbero 
-                                   FROM Citas 
-                                   WHERE fecha = @fecha 
-                                     AND estado NOT IN ('cancelada', 'cancelado')
-                                     AND id_barbero IS NOT NULL
-                                     AND CAST(hora_inicio AS TIME) < CAST(@end AS TIME)
-                                     AND CAST(hora_fin AS TIME) > CAST(@start AS TIME)
-                               )) as free_active
-                    `);
-                const { total_active, free_active } = checkFreeRes.recordset[0];
+                const checkFreeRes = await db.query(`
+                    SELECT 
+                        (SELECT COUNT(*) FROM Barberos WHERE estado = 'Activo')::int as total_active,
+                        (SELECT COUNT(*) FROM Barberos b 
+                         WHERE b.estado = 'Activo' 
+                           AND b.id_barbero NOT IN (
+                               SELECT id_barbero 
+                               FROM Citas 
+                               WHERE fecha = $1 
+                                 AND estado NOT IN ('cancelada', 'cancelado')
+                                 AND id_barbero IS NOT NULL
+                                 AND hora_inicio::time < $2::time
+                                 AND hora_fin::time > $3::time
+                           ))::int as free_active
+                `, [bookingData.fecha, bookingData.hora_fin, bookingData.hora_inicio]);
+                
+                const { total_active, free_active } = checkFreeRes.rows[0];
                 if (total_active === 0) {
                     return res.status(400).json({ success: false, message: 'No hay barberos activos registrados en el sistema.' });
                 }
@@ -138,11 +122,9 @@ class AppointmentController {
             // 2. Crear o verificar el cliente invitado
             let id_cliente = null;
             if (clienteData.documento) {
-                const checkRes = await pool.request()
-                    .input('doc', sql.VarChar, clienteData.documento)
-                    .query("SELECT id_cliente FROM Clientes WHERE documento = @doc");
-                if (checkRes.recordset.length > 0) {
-                    id_cliente = checkRes.recordset[0].id_cliente;
+                const checkRes = await db.query("SELECT id_cliente FROM Clientes WHERE documento = $1", [clienteData.documento]);
+                if (checkRes.rows.length > 0) {
+                    id_cliente = checkRes.rows[0].id_cliente;
                 }
             }
 
@@ -178,23 +160,6 @@ class AppointmentController {
                 }
             });
 
-            // 4. Enviar Correo de Confirmación de forma asíncrona
-            const servicesRes = await pool.request().query("SELECT id_servicio, nombre FROM Servicios");
-            const serviceNames = bookingData.id_servicios.map(sId => {
-                const s = servicesRes.recordset.find(x => x.id_servicio === parseInt(sId));
-                return s ? s.nombre : 'Servicio';
-            }).join(', ');
-
-            let barberName = 'Cualquier barbero disponible';
-            if (id_barbero_val) {
-                const barbRes = await pool.request()
-                    .input('id_barbero', sql.Int, id_barbero_val)
-                    .query("SELECT u.nombre FROM Barberos b JOIN Usuarios u ON b.id_usuario = u.id_usuario WHERE b.id_barbero = @id_barbero");
-                if (barbRes.recordset.length > 0) {
-                    barberName = barbRes.recordset[0].nombre;
-                }
-            }
-
             // Enviar notificaciones por correo electrónico de forma asíncrona a cliente y barbero
             MailService.sendNotificationOnCreation(newCitaId).catch(e => console.error("Error al enviar notificaciones de confirmación:", e));
 
@@ -215,23 +180,17 @@ class AppointmentController {
         try {
             let data = await AppointmentModel.getAll();
             if (req.user && req.user.rol === 'Cliente') {
-                const pool = await poolPromise;
-                const clientRes = await pool.request()
-                    .input('id_u', sql.Int, req.user.id)
-                    .query('SELECT id_cliente FROM Clientes WHERE id_usuario = @id_u');
-                if (clientRes.recordset.length > 0) {
-                    const id_cliente = clientRes.recordset[0].id_cliente;
+                const clientRes = await db.query('SELECT id_cliente FROM Clientes WHERE id_usuario = $1', [req.user.id]);
+                if (clientRes.rows.length > 0) {
+                    const id_cliente = clientRes.rows[0].id_cliente;
                     data = data.filter(c => c.id_cliente === id_cliente);
                 } else {
                     data = [];
                 }
             } else if (req.user && req.user.rol === 'Barbero') {
-                const pool = await poolPromise;
-                const barberoRes = await pool.request()
-                    .input('id_u', sql.Int, req.user.id)
-                    .query('SELECT id_barbero FROM Barberos WHERE id_usuario = @id_u');
-                if (barberoRes.recordset.length > 0) {
-                    const id_barbero = barberoRes.recordset[0].id_barbero;
+                const barberoRes = await db.query('SELECT id_barbero FROM Barberos WHERE id_usuario = $1', [req.user.id]);
+                if (barberoRes.rows.length > 0) {
+                    const id_barbero = barberoRes.rows[0].id_barbero;
                     data = data.filter(c => c.id_barbero === id_barbero);
                 } else {
                     data = [];
@@ -245,7 +204,6 @@ class AppointmentController {
         try {
             const id = await AppointmentModel.create(req.body);
             
-            // Enviar notificaciones por correo electrónico de forma asíncrona a cliente y barbero
             MailService.sendNotificationOnCreation(id).catch(e => console.error("Error al enviar notificaciones de confirmación:", e));
 
             await NotificationService.createNotification({
@@ -300,4 +258,5 @@ class AppointmentController {
         } catch (error) { res.status(500).json({ error: error.message }); }
     }
 }
+
 module.exports = AppointmentController;

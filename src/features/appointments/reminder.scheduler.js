@@ -1,13 +1,11 @@
-const { sql, poolPromise } = require('../../config/db');
+const db = require('../../config/db');
 const MailService = require('./mail.service');
 const NotificationService = require('../notifications/notification.service');
 
 async function checkAndSendReminders() {
     try {
-        const pool = await poolPromise;
-        
         console.log("Checking for appointments scheduled for tomorrow to send reminders...");
-        const result = await pool.request().query(`
+        const result = await db.query(`
             SELECT c.id_cita, c.fecha, c.hora_inicio, 
                    COALESCE(u.nombre, cl.nombre_invitado, 'Cliente General') as cliente_nombre,
                    COALESCE(u.email, cl.email_invitado) as cliente_email,
@@ -20,18 +18,17 @@ async function checkAndSendReminders() {
             LEFT JOIN Usuarios u_bar ON b.id_usuario = u_bar.id_usuario
             LEFT JOIN Servicios s ON c.id_servicio = s.id_servicio
             WHERE c.estado NOT IN ('cancelada', 'cancelado', 'completada', 'completado', 'en-ejecucion', 'en ejecucion', 'en_ejecucion')
-              AND (c.recordatorio_enviado = 0 OR c.recordatorio_enviado IS NULL)
-              AND CAST(c.fecha AS DATE) = CAST(DATEADD(day, 1, GETDATE()) AS DATE)
+              AND (c.recordatorio_enviado = FALSE OR c.recordatorio_enviado IS NULL)
+              AND c.fecha::date = CURRENT_DATE + 1
         `);
 
-        const appointments = result.recordset;
+        const appointments = result.rows;
         if (appointments.length > 0) {
             console.log(`Found ${appointments.length} appointments scheduled for tomorrow requiring reminders.`);
         }
 
         for (const app of appointments) {
             if (app.cliente_email) {
-                // Formatear hora
                 let horaStr = '';
                 if (app.hora_inicio) {
                     if (app.hora_inicio instanceof Date) {
@@ -53,10 +50,7 @@ async function checkAndSendReminders() {
                     hora: horaStr
                 });
 
-                // Actualizar recordatorio_enviado a 1
-                await pool.request()
-                    .input('id_cita', sql.Int, app.id_cita)
-                    .query("UPDATE Citas SET recordatorio_enviado = 1 WHERE id_cita = @id_cita");
+                await db.query("UPDATE Citas SET recordatorio_enviado = TRUE WHERE id_cita = $1", [app.id_cita]);
             }
         }
     } catch (error) {
@@ -66,10 +60,8 @@ async function checkAndSendReminders() {
 
 async function checkAndSend30MinReminders() {
     try {
-        const pool = await poolPromise;
-        
         console.log("Checking for appointments starting in the next 30 minutes to send reminders...");
-        const result = await pool.request().query(`
+        const result = await db.query(`
             SELECT c.id_cita, c.fecha, c.hora_inicio, 
                    COALESCE(u.nombre, cl.nombre_invitado, 'Cliente General') as cliente_nombre,
                    COALESCE(u.email, cl.email_invitado) as cliente_email,
@@ -84,17 +76,16 @@ async function checkAndSend30MinReminders() {
             LEFT JOIN Usuarios u_bar ON b.id_usuario = u_bar.id_usuario
             LEFT JOIN Servicios s ON c.id_servicio = s.id_servicio
             WHERE c.estado NOT IN ('cancelada', 'cancelado', 'completada', 'completado', 'en-ejecucion', 'en ejecucion', 'en_ejecucion')
-              AND (c.recordatorio_30m_enviado = 0 OR c.recordatorio_30m_enviado IS NULL)
-              AND DATEDIFF(minute, GETDATE(), CAST(c.fecha AS DATETIME) + CAST(c.hora_inicio AS DATETIME)) BETWEEN 0 AND 30
+              AND (c.recordatorio_30m_enviado = FALSE OR c.recordatorio_30m_enviado IS NULL)
+              AND ((c.fecha + c.hora_inicio::time) - LOCALTIMESTAMP) BETWEEN INTERVAL '0 minutes' AND INTERVAL '30 minutes'
         `);
 
-        const appointments = result.recordset;
+        const appointments = result.rows;
         if (appointments.length > 0) {
             console.log(`Found ${appointments.length} appointments starting in the next 30 minutes requiring reminders.`);
         }
 
         for (const app of appointments) {
-            // 1. Formatear Fecha
             let dateStr = app.fecha;
             if (app.fecha instanceof Date) {
                 dateStr = app.fecha.toISOString().split('T')[0];
@@ -103,7 +94,6 @@ async function checkAndSend30MinReminders() {
                 weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
             });
 
-            // 2. Formatear Hora
             let horaStr = '';
             if (app.hora_inicio) {
                 if (app.hora_inicio instanceof Date) {
@@ -114,7 +104,6 @@ async function checkAndSend30MinReminders() {
                 }
             }
 
-            // 3. Formatear Servicios
             let serviceNames = app.servicio_nombre || 'Servicio';
             if (app.detalles_json) {
                 try {
@@ -124,9 +113,9 @@ async function checkAndSend30MinReminders() {
                         if (hasNames) {
                             serviceNames = detalles.servicios.map(s => s.nombre).join(', ');
                         } else {
-                            const servicesRes = await pool.request().query("SELECT id_servicio, nombre FROM Servicios");
+                            const servicesRes = await db.query("SELECT id_servicio, nombre FROM Servicios");
                             const matchedNames = detalles.servicios.map(ds => {
-                                const s = servicesRes.recordset.find(x => x.id_servicio === parseInt(ds.id_servicio));
+                                const s = servicesRes.rows.find(x => x.id_servicio === parseInt(ds.id_servicio));
                                 return s ? s.nombre : 'Servicio';
                             });
                             if (matchedNames.length > 0) {
@@ -142,7 +131,6 @@ async function checkAndSend30MinReminders() {
             const clientName = app.cliente_nombre || 'Cliente General';
             const barberName = app.barbero_nombre || 'Cualquier barbero disponible';
 
-            // Enviar recordatorio al Cliente por Correo
             if (app.cliente_email) {
                 await MailService.sendCustomer30MinReminderEmail({
                     email: app.cliente_email,
@@ -154,7 +142,6 @@ async function checkAndSend30MinReminders() {
                 });
             }
 
-            // Enviar recordatorio al Barbero por Correo
             if (app.barbero_email) {
                 await MailService.sendBarberReminderEmail({
                     email: app.barbero_email,
@@ -166,7 +153,6 @@ async function checkAndSend30MinReminders() {
                 });
             }
 
-            // Registrar en el modulo de Notificaciones (in-app + SSE broadcast)
             await NotificationService.createNotification({
                 modulo: 'Citas',
                 accion: 'recordatorio',
@@ -174,10 +160,7 @@ async function checkAndSend30MinReminders() {
                 req: null
             });
 
-            // Actualizar recordatorio_30m_enviado a 1
-            await pool.request()
-                .input('id_cita', sql.Int, app.id_cita)
-                .query("UPDATE Citas SET recordatorio_30m_enviado = 1 WHERE id_cita = @id_cita");
+            await db.query("UPDATE Citas SET recordatorio_30m_enviado = TRUE WHERE id_cita = $1", [app.id_cita]);
         }
     } catch (error) {
         console.error("Error running checkAndSend30MinReminders:", error.message);
@@ -185,14 +168,10 @@ async function checkAndSend30MinReminders() {
 }
 
 function startReminderScheduler() {
-    // Ejecutar recordatorios de mañana inmediatamente al iniciar
     checkAndSendReminders();
-    // Y luego ejecutar cada 1 hora (3600000 ms)
     setInterval(checkAndSendReminders, 60 * 60 * 1000);
 
-    // Ejecutar recordatorios de 30 minutos inmediatamente al iniciar
     checkAndSend30MinReminders();
-    // Y luego ejecutar cada 1 minuto (60000 ms)
     setInterval(checkAndSend30MinReminders, 60 * 1000);
 }
 

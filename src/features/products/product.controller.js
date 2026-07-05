@@ -1,26 +1,3 @@
-// const ProductModel = require('./product.model');
-
-// class ProductController {
-//     static async getProducts(req, res) {
-//         try {
-//             const products = await ProductModel.getAll();
-//             res.json({ success: true, data: products });
-//         } catch (error) {
-//             res.status(500).json({ success: false, error: error.message });
-//         }
-//     }
-
-//     static async createProduct(req, res) {
-//         try {
-//             const id = await ProductModel.create(req.body);
-//             res.status(201).json({ success: true, id });
-//         } catch (error) {
-//             res.status(500).json({ success: false, error: error.message });
-//         }
-//     }
-// }
-// module.exports = ProductController;
-
 const ProductModel = require('./product.model');
 const NotificationService = require('../notifications/notification.service');
 
@@ -48,7 +25,6 @@ class ProductController {
         try {
             const productData = { ...req.body };
             if (req.file) {
-                // Guardamos la ruta relativa para que sea flexible
                 productData.img = `/uploads/products/${req.file.filename}`;
             }
             const id = await ProductModel.create(productData);
@@ -96,9 +72,10 @@ class ProductController {
             });
             res.json({ success: true, message: 'Producto eliminado' });
         } catch (error) {
-            if (error.number === 547) return res.status(400).json({ success: false, message: 'No se puede eliminar, el producto tiene historial (ej. Ventas o Compras).' });
+            if (error.code === '23503') return res.status(400).json({ success: false, message: 'No se puede eliminar, el producto tiene historial (ej. Ventas o Compras).' });
             res.status(500).json({ success: false, message: 'Error eliminando producto', error: error.message });
         }
     }
 }
+
 module.exports = ProductController;

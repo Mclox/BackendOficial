@@ -6,10 +6,10 @@ class SaleController {
         try {
             const data = await SaleModel.getAll();
             res.json({ success: true, data });
-        } catch (error) { res.status(500).json({ error: error.message }); }
+        } catch (error) { 
+            res.status(500).json({ error: error.message }); 
+        }
     }
-
-    // ... debajo de getSales()
 
     static async getSaleDetails(req, res) {
         try {
@@ -43,7 +43,10 @@ class SaleController {
             });
 
             res.status(201).json({ success: true, message: "Venta registrada con éxito", id_venta });
-        } catch (error) { res.status(500).json({ error: error.message }); }
+        } catch (error) { 
+            res.status(500).json({ error: error.message }); 
+        }
     }
 }
+
 module.exports = SaleController;

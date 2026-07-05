@@ -6,6 +6,6 @@ const { verifyToken, checkPermission } = require('../../middlewares/auth.middlew
 // Rutas protegidas con verifyToken y checkPermission
 router.get('/', verifyToken, checkPermission('Productos', 'leer'), getEntries);
 router.post('/', verifyToken, checkPermission('Productos', 'crear'), createEntry);
-router.put('/:id/annul', verifyToken, checkPermission('Productos', 'actualizar'), annulEntry); // Única ruta permitida para modificar
+router.put('/:id/annul', verifyToken, checkPermission('Productos', 'actualizar'), annulEntry);
 
 module.exports = router;

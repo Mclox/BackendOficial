@@ -9,7 +9,6 @@ class DashboardController {
             if (rol === 'Cliente') {
                 data = await DashboardModel.getClientStats(id_usuario);
             } else {
-                // Admin o Barbero ven el panel general
                 data = await DashboardModel.getAdminStats();
             }
 
@@ -19,4 +18,5 @@ class DashboardController {
         }
     }
 }
+
 module.exports = DashboardController;

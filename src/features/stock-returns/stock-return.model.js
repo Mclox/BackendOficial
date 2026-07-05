@@ -1,9 +1,8 @@
-const { sql, poolPromise } = require('../../config/db');
+const db = require('../../config/db');
 
 class StockReturnModel {
     static async getAll() {
-        const pool = await poolPromise;
-        const result = await pool.request().query(`
+        const result = await db.query(`
             SELECT d.*, 
                    p.nombre as producto_nombre, 
                    u.nombre as usuario_nombre
@@ -12,35 +11,32 @@ class StockReturnModel {
             INNER JOIN Usuarios u ON d.id_usuario = u.id_usuario
             ORDER BY d.fecha DESC
         `);
-        return result.recordset;
+        return result.rows;
     }
 
     static async create(data) {
-        const pool = await poolPromise;
-        await pool.request()
-            .input('id_venta', sql.Int, data.id_venta)
-            .input('id_producto', sql.Int, data.id_producto)
-            .input('id_usuario', sql.Int, data.id_usuario)
-            .input('cantidad', sql.Int, data.cantidad)
-            .input('motivo', sql.VarChar(500), data.motivo)
-            .input('estado', sql.VarChar, data.estado || 'Activo')
-            .query(`
-                INSERT INTO Devoluciones_Stock (id_venta, id_producto, id_usuario, cantidad, motivo, estado)
-                VALUES (@id_venta, @id_producto, @id_usuario, @cantidad, @motivo, @estado)
-            `);
-     }
+        const query = `
+            INSERT INTO Devoluciones_Stock (id_venta, id_producto, id_usuario, cantidad, motivo, estado)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        `;
+        await db.query(query, [
+            data.id_venta,
+            data.id_producto,
+            data.id_usuario,
+            data.cantidad,
+            data.motivo,
+            data.estado || 'Activo'
+        ]);
+    }
 
-     static async updateStatus(id, estado) {
-         const pool = await poolPromise;
-         const result = await pool.request()
-             .input('id', sql.Int, id)
-             .input('estado', sql.VarChar, estado)
-             .query(`
-                 UPDATE Devoluciones_Stock
-                 SET estado = @estado
-                 WHERE id_devolucion = @id
-             `);
-         return result.rowsAffected[0] > 0;
-     }
+    static async updateStatus(id, estado) {
+        const result = await db.query(`
+            UPDATE Devoluciones_Stock
+            SET estado = $1
+            WHERE id_devolucion = $2
+        `, [estado, id]);
+        return result.rowCount > 0;
+    }
 }
+
 module.exports = StockReturnModel;

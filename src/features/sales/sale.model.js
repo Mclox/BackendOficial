@@ -1,76 +1,64 @@
-const { sql, poolPromise } = require('../../config/db');
+const db = require('../../config/db');
 
 class SaleModel {
     static async getAll() {
-        const pool = await poolPromise;
-        const result = await pool.request().query(`
+        const result = await db.query(`
             SELECT v.*, u_vend.nombre as vendedor_nombre 
             FROM Ventas v
             LEFT JOIN Usuarios u_vend ON v.id_vendedor = u_vend.id_usuario
             ORDER BY v.fecha DESC
         `);
-        return result.recordset;
+        return result.rows;
     }
 
     static async createHeader(data) {
-        const pool = await poolPromise;
         const { id_cliente, id_vendedor, metodo_pago } = data;
 
-        const result = await pool.request()
-            .input('id_cli', sql.Int, id_cliente || null)
-            .input('id_ven', sql.Int, id_vendedor)
-            .input('metodo', sql.VarChar, metodo_pago)
-            .query(`
-                DECLARE @newId INT = (SELECT ISNULL(MAX(id_venta), 0) + 1 FROM Ventas);
-                INSERT INTO Ventas (id_venta, id_cliente, id_vendedor, metodo_pago)
-                VALUES (@newId, @id_cli, @id_ven, @metodo);
-                SELECT @newId AS insertId;
-            `);
-        return result.recordset[0].insertId;
+        const query = `
+            INSERT INTO Ventas (id_cliente, id_vendedor, metodo_pago)
+            VALUES ($1, $2, $3)
+            RETURNING id_venta
+        `;
+        const result = await db.query(query, [id_cliente || null, id_vendedor, metodo_pago]);
+        return result.rows[0].id_venta;
     }
 
     static async createDetail(id_venta, data) {
-        const pool = await poolPromise;
         const { tipo, id_producto, id_servicio, id_barbero, cantidad, precio_unitario_neto, iva_porcentaje } = data;
         
-        // Calculamos el IVA y el Subtotal del ítem en Node para enviárselo a SQL
         const iva_monto = (precio_unitario_neto * (iva_porcentaje || 0)) / 100;
         const subtotal_item = (precio_unitario_neto + iva_monto) * cantidad;
 
-        await pool.request()
-            .input('id_v', sql.Int, id_venta)
-            .input('tipo', sql.VarChar, tipo)
-            .input('id_prod', sql.Int, id_producto || null)
-            .input('id_serv', sql.Int, id_servicio || null)
-            .input('id_barb', sql.Int, id_barbero || null)
-            .input('cant', sql.Int, cantidad)
-            .input('precio_neto', sql.Decimal(12,2), precio_unitario_neto)
-            .input('iva_m', sql.Decimal(12,2), iva_monto)
-            .input('subtot', sql.Decimal(12,2), subtotal_item)
-            .query(`
-                INSERT INTO Ventas_Detalle (id_venta, tipo, id_producto, id_servicio, id_barbero, cantidad, precio_unitario_neto, iva_monto, subtotal_item)
-                VALUES (@id_v, @tipo, @id_prod, @id_serv, @id_barb, @cant, @precio_neto, @iva_m, @subtot)
-            `);
-        // No necesitamos retornar nada, el Trigger hace el resto
+        const query = `
+            INSERT INTO Ventas_Detalle (id_venta, tipo, id_producto, id_servicio, id_barbero, cantidad, precio_unitario_neto, iva_monto, subtotal_item)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `;
+        const values = [
+            id_venta,
+            tipo,
+            id_producto || null,
+            id_servicio || null,
+            id_barbero || null,
+            cantidad,
+            precio_unitario_neto,
+            iva_monto,
+            subtotal_item
+        ];
+        await db.query(query, values);
     }
-
-    // ... debajo de createDetail()
 
     static async getDetails(id_venta) {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('id_v', sql.Int, id_venta)
-            .query(`
-                SELECT d.*, 
-                       p.nombre as producto_nombre, 
-                       s.nombre as servicio_nombre
-                FROM Ventas_Detalle d
-                LEFT JOIN Productos p ON d.id_producto = p.id_producto
-                LEFT JOIN Servicios s ON d.id_servicio = s.id_servicio
-                WHERE d.id_venta = @id_v
-            `);
-        return result.recordset;
+        const result = await db.query(`
+            SELECT d.*, 
+                   p.nombre as producto_nombre, 
+                   s.nombre as servicio_nombre
+            FROM Ventas_Detalle d
+            LEFT JOIN Productos p ON d.id_producto = p.id_producto
+            LEFT JOIN Servicios s ON d.id_servicio = s.id_servicio
+            WHERE d.id_venta = $1
+        `, [id_venta]);
+        return result.rows;
     }
-    
 }
+
 module.exports = SaleModel;

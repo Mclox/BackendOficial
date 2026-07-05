@@ -27,7 +27,7 @@ class ServiceController {
             await NotificationService.createNotification({
                 modulo: 'Servicios',
                 accion: 'creacion',
-                descripcion: `Se creó el servicio "${req.body.nombre}" con precio de $${req.body.precio}.`,
+                descripcion: `Se creó el servicio "${req.body.nombre}" con precio de $${req.body.precio_neto}.`,
                 req
             });
             res.status(201).json({ success: true, message: 'Servicio creado', data: { id_servicio: newId } });
@@ -64,9 +64,10 @@ class ServiceController {
             });
             res.json({ success: true, message: 'Servicio eliminado' });
         } catch (error) {
-            if (error.number === 547) return res.status(400).json({ success: false, message: 'No se puede eliminar, tiene citas o ventas asociadas.' });
+            if (error.code === '23503') return res.status(400).json({ success: false, message: 'No se puede eliminar, tiene citas o ventas asociadas.' });
             res.status(500).json({ success: false, message: 'Error eliminando servicio', error: error.message });
         }
     }
 }
+
 module.exports = ServiceController;

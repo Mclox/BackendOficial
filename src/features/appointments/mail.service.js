@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-const { sql, poolPromise } = require('../../config/db');
+const db = require('../../config/db');
 
 // Configuración del servicio de correo con Gmail SMTP
 const transporter = nodemailer.createTransport({
@@ -231,34 +231,29 @@ class MailService {
      */
     static async sendNotificationOnCreation(id_cita) {
         try {
-            const pool = await poolPromise;
+            const result = await db.query(`
+                SELECT c.id_cita, c.fecha, c.hora_inicio, c.hora_fin, c.detalles_json,
+                       COALESCE(u_cli.nombre, cl.nombre_invitado) as cliente_nombre,
+                       COALESCE(u_cli.email, cl.email_invitado) as cliente_email,
+                       u_bar.nombre as barbero_nombre,
+                       u_bar.email as barbero_email,
+                       s.nombre as servicio_nombre
+                FROM Citas c
+                LEFT JOIN Clientes cl ON c.id_cliente = cl.id_cliente
+                LEFT JOIN Usuarios u_cli ON cl.id_usuario = u_cli.id_usuario
+                LEFT JOIN Barberos b ON c.id_barbero = b.id_barbero
+                LEFT JOIN Usuarios u_bar ON b.id_usuario = u_bar.id_usuario
+                LEFT JOIN Servicios s ON c.id_servicio = s.id_servicio
+                WHERE c.id_cita = $1
+            `, [id_cita]);
 
-            const result = await pool.request()
-                .input('id', sql.Int, id_cita)
-                .query(`
-                    SELECT c.id_cita, c.fecha, c.hora_inicio, c.hora_fin, c.detalles_json,
-                           COALESCE(u_cli.nombre, cl.nombre_invitado) as cliente_nombre,
-                           COALESCE(u_cli.email, cl.email_invitado) as cliente_email,
-                           u_bar.nombre as barbero_nombre,
-                           u_bar.email as barbero_email,
-                           s.nombre as servicio_nombre
-                    FROM Citas c
-                    LEFT JOIN Clientes cl ON c.id_cliente = cl.id_cliente
-                    LEFT JOIN Usuarios u_cli ON cl.id_usuario = u_cli.id_usuario
-                    LEFT JOIN Barberos b ON c.id_barbero = b.id_barbero
-                    LEFT JOIN Usuarios u_bar ON b.id_usuario = u_bar.id_usuario
-                    LEFT JOIN Servicios s ON c.id_servicio = s.id_servicio
-                    WHERE c.id_cita = @id
-                `);
-
-            if (result.recordset.length === 0) {
+            if (result.rows.length === 0) {
                 console.log(`Cita con ID ${id_cita} no encontrada para enviar notificaciones.`);
                 return;
             }
 
-            const row = result.recordset[0];
+            const row = result.rows[0];
 
-            // 1. Formatear Fecha
             let dateStr = row.fecha;
             if (row.fecha instanceof Date) {
                 dateStr = row.fecha.toISOString().split('T')[0];
@@ -267,7 +262,6 @@ class MailService {
                 weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
             });
 
-            // 2. Formatear Hora
             let horaStr = '';
             if (row.hora_inicio) {
                 if (row.hora_inicio instanceof Date) {
@@ -278,7 +272,6 @@ class MailService {
                 }
             }
 
-            // 3. Formatear Servicios
             let serviceNames = row.servicio_nombre || 'Servicio';
             if (row.detalles_json) {
                 try {
@@ -288,9 +281,9 @@ class MailService {
                         if (hasNames) {
                             serviceNames = detalles.servicios.map(s => s.nombre).join(', ');
                         } else {
-                            const servicesRes = await pool.request().query("SELECT id_servicio, nombre FROM Servicios");
+                            const servicesRes = await db.query("SELECT id_servicio, nombre FROM Servicios");
                             const matchedNames = detalles.servicios.map(ds => {
-                                const s = servicesRes.recordset.find(x => x.id_servicio === parseInt(ds.id_servicio));
+                                const s = servicesRes.rows.find(x => x.id_servicio === parseInt(ds.id_servicio));
                                 return s ? s.nombre : 'Servicio';
                             });
                             if (matchedNames.length > 0) {
@@ -306,7 +299,6 @@ class MailService {
             const clientName = row.cliente_nombre || 'Cliente General';
             const barberName = row.barbero_nombre || 'Cualquier barbero disponible';
 
-            // Enviar correo al Cliente
             if (row.cliente_email) {
                 await this.sendConfirmationEmail({
                     email: row.cliente_email,
@@ -318,7 +310,6 @@ class MailService {
                 });
             }
 
-            // Enviar correo al Barbero
             if (row.barbero_email) {
                 await this.sendBarberConfirmationEmail({
                     email: row.barbero_email,
