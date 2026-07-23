@@ -430,6 +430,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('../../config/db');
 const UserModel = require('../users/user.model');
+const ClientModel = require('../clients/client.model');
 
 class AuthController {
     static async login(req, res) {
@@ -489,9 +490,9 @@ class AuthController {
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
 
-            // Asegúrate de que el id_rol coincida con un ID de tu tabla Roles (ej: 1 para Administrador)
+            // El rol de registro público siempre es 3 (Cliente)
             const userData = { 
-                id_rol: 1, 
+                id_rol: 3, 
                 nombre, 
                 tipo_documento: 'CC', 
                 documento: 'REG-' + Date.now(), 
@@ -501,6 +502,10 @@ class AuthController {
             };
             
             const newId = await UserModel.create(userData);
+            
+            // Crear el perfil del cliente
+            await ClientModel.getOrCreateByUsuario(newId);
+
             res.status(201).json({ success: true, message: 'Usuario registrado exitosamente', id_usuario: newId });
         } catch (error) {
             if (error.code === '23505') return res.status(400).json({ success: false, message: 'El correo electrónico ya está registrado.' });
