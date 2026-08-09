@@ -1,5 +1,26 @@
 const ProductModel = require('./product.model');
 const NotificationService = require('../notifications/notification.service');
+const path = require('path');
+const supabase = require('../../config/supabase');
+
+async function uploadImageToSupabase(file) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const filename = uniqueSuffix + ext;
+
+    const { data, error } = await supabase.storage
+        .from('products')
+        .upload(filename, file.buffer, {
+            contentType: file.mimetype,
+            upsert: true
+        });
+
+    if (error) {
+        throw new Error('Error subiendo imagen a Supabase: ' + error.message);
+    }
+
+    return `/uploads/products/${filename}`;
+}
 
 class ProductController {
     static async getProducts(req, res) {
@@ -25,7 +46,7 @@ class ProductController {
         try {
             const productData = { ...req.body };
             if (req.file) {
-                productData.img = `/uploads/products/${req.file.filename}`;
+                productData.img = await uploadImageToSupabase(req.file);
             }
             const id = await ProductModel.create(productData);
             await NotificationService.createNotification({
@@ -44,7 +65,7 @@ class ProductController {
         try {
             const productData = { ...req.body };
             if (req.file) {
-                productData.img = `/uploads/products/${req.file.filename}`;
+                productData.img = await uploadImageToSupabase(req.file);
             }
             const updated = await ProductModel.update(req.params.id, productData);
             if (!updated) return res.status(404).json({ success: false, message: 'Producto no encontrado' });
