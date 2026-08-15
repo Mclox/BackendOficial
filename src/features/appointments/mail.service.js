@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const db = require('../../config/db');
+const WhatsAppService = require('./whatsapp.service');
 
 // Configuración del servicio de correo con Gmail SMTP
 const transporter = nodemailer.createTransport({
@@ -235,8 +236,10 @@ class MailService {
                 SELECT c.id_cita, c.fecha, c.hora_inicio, c.hora_fin, c.detalles_json,
                        COALESCE(u_cli.nombre, cl.nombre_invitado) as cliente_nombre,
                        COALESCE(u_cli.email, cl.email_invitado) as cliente_email,
+                       COALESCE(u_cli.telefono, cl.telefono_invitado) as cliente_telefono,
                        u_bar.nombre as barbero_nombre,
                        u_bar.email as barbero_email,
+                       u_bar.telefono as barbero_telefono,
                        s.nombre as servicio_nombre
                 FROM Citas c
                 LEFT JOIN Clientes cl ON c.id_cliente = cl.id_cliente
@@ -299,6 +302,7 @@ class MailService {
             const clientName = row.cliente_nombre || 'Cliente General';
             const barberName = row.barbero_nombre || 'Cualquier barbero disponible';
 
+            // 1. Enviar correos
             if (row.cliente_email) {
                 await this.sendConfirmationEmail({
                     email: row.cliente_email,
@@ -319,6 +323,12 @@ class MailService {
                     fecha: formattedDate,
                     hora: horaStr
                 });
+            }
+
+            // 2. Enviar WhatsApp al barbero asignado inmediatamente
+            if (row.barbero_telefono) {
+                const waMessage = `💈 *Nueva Cita Agendada - CzBarber*\n\nHola *${barberName}*,\nSe ha agendado una nueva cita en tu agenda:\n\n• *Cliente:* ${clientName}\n• *Servicio(s):* ${serviceNames}\n• *Fecha:* ${formattedDate}\n• *Hora:* ${horaStr}\n\nPor favor, ingresa al sistema para revisarla y confirmarla para el horario solicitado.`;
+                await WhatsAppService.sendMessage(row.barbero_telefono, waMessage).catch(e => console.error("Error al enviar WhatsApp inmediato al barbero:", e.message));
             }
         } catch (error) {
             console.error(`❌ Error en sendNotificationOnCreation para cita ID ${id_cita}:`, error.message);

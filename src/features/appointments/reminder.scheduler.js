@@ -1,6 +1,7 @@
 const db = require('../../config/db');
 const MailService = require('./mail.service');
 const NotificationService = require('../notifications/notification.service');
+const WhatsAppService = require('./whatsapp.service');
 
 async function checkAndSendReminders() {
     try {
@@ -65,8 +66,10 @@ async function checkAndSend30MinReminders() {
             SELECT c.id_cita, c.fecha, c.hora_inicio, 
                    COALESCE(u.nombre, cl.nombre_invitado, 'Cliente General') as cliente_nombre,
                    COALESCE(u.email, cl.email_invitado) as cliente_email,
+                   COALESCE(u.telefono, cl.telefono_invitado) as cliente_telefono,
                    u_bar.nombre as barbero_nombre,
                    u_bar.email as barbero_email,
+                   u_bar.telefono as barbero_telefono,
                    s.nombre as servicio_nombre,
                    c.detalles_json
             FROM Citas c
@@ -131,6 +134,7 @@ async function checkAndSend30MinReminders() {
             const clientName = app.cliente_nombre || 'Cliente General';
             const barberName = app.barbero_nombre || 'Cualquier barbero disponible';
 
+            // 1. Enviar correos
             if (app.cliente_email) {
                 await MailService.sendCustomer30MinReminderEmail({
                     email: app.cliente_email,
@@ -151,6 +155,17 @@ async function checkAndSend30MinReminders() {
                     fecha: formattedDate,
                     hora: horaStr
                 });
+            }
+
+            // 2. Enviar WhatsApp (30 minutos antes)
+            if (app.cliente_telefono) {
+                const waMessage = `⏰ *Recordatorio de Cita - CzBarber*\n\nHola *${clientName}*,\nTe recordamos que tu cita de hoy con *${barberName}* comienza en *30 minutos*:\n\n• *Servicio(s):* ${serviceNames}\n• *Hora:* ${horaStr}\n\n¡Te esperamos! Recuerda llegar a tiempo.`;
+                await WhatsAppService.sendMessage(app.cliente_telefono, waMessage).catch(e => console.error("Error al enviar WhatsApp 30m a cliente:", e.message));
+            }
+
+            if (app.barbero_telefono) {
+                const waMessage = `⏰ *Recordatorio de Cita Próxima - CzBarber*\n\nHola *${barberName}*,\nTe recordamos que tienes una cita programada en *30 minutos*:\n\n• *Cliente:* ${clientName}\n• *Servicio(s):* ${serviceNames}\n• *Hora:* ${horaStr}\n\nPor favor, mantente listo para recibir al cliente.`;
+                await WhatsAppService.sendMessage(app.barbero_telefono, waMessage).catch(e => console.error("Error al enviar WhatsApp 30m a barbero:", e.message));
             }
 
             await NotificationService.createNotification({

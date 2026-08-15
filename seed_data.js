@@ -40,7 +40,8 @@ async function run() {
                 { modulo: "Servicios", crear: false, leer: true, actualizar: false, eliminar: false },
                 { modulo: "Empleados", crear: false, leer: true, actualizar: false, eliminar: false },
                 { modulo: "Citas", crear: true, leer: true, actualizar: true, eliminar: false },
-                { modulo: "Ventas", crear: true, leer: true, actualizar: false, eliminar: false }
+                { modulo: "Ventas", crear: true, leer: true, actualizar: false, eliminar: false },
+                { modulo: "Clientes", crear: true, leer: true, actualizar: false, eliminar: false }
             ]);
 
             const clientePermissions = JSON.stringify([

@@ -26,8 +26,8 @@ const checkPermission = (modulo, accion) => {
             return next();
         }
 
-        // El Cliente puede leer su propio perfil del módulo Clientes
-        if (req.user.rol === 'Cliente' && modulo === 'Clientes' && accion === 'leer') {
+        // El Cliente o Barbero puede leer el módulo Clientes para agendar citas
+        if ((req.user.rol === 'Cliente' || req.user.rol === 'Barbero') && modulo === 'Clientes' && accion === 'leer') {
             return next();
         }
         

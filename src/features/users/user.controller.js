@@ -13,6 +13,27 @@ class UserController {
     static async createUser(req, res) {
         try {
             const userData = { ...req.body };
+
+            // 1. Validar obligatoriedad
+            if (!userData.telefono || userData.telefono.trim() === '') {
+                return res.status(400).json({ success: false, message: 'El número de teléfono es obligatorio.' });
+            }
+
+            // 2. Validar formato internacional (E.164)
+            const cleanPhone = userData.telefono.trim().replace(/[^\d+]/g, '');
+            const phoneRegex = /^\+[1-9]\d{9,14}$/;
+            if (!phoneRegex.test(cleanPhone)) {
+                return res.status(400).json({ success: false, message: 'El número de teléfono debe estar en formato internacional, iniciando con + (ej: +573001234567).' });
+            }
+
+            // 3. Evitar duplicación de teléfono
+            const phoneCheck = await db.query('SELECT id_usuario FROM Usuarios WHERE telefono = $1', [cleanPhone]);
+            if (phoneCheck.rows.length > 0) {
+                return res.status(400).json({ success: false, message: 'El número de teléfono ya está registrado por otro usuario.' });
+            }
+
+            userData.telefono = cleanPhone;
+
             if (userData.password) {
                 const salt = await bcrypt.genSalt(10);
                 userData.contrasena = await bcrypt.hash(userData.password, salt);
@@ -26,6 +47,26 @@ class UserController {
         try {
             const { id } = req.params;
             const userData = { ...req.body };
+
+            // 1. Validar obligatoriedad del teléfono
+            if (!userData.telefono || userData.telefono.trim() === '') {
+                return res.status(400).json({ success: false, message: 'El número de teléfono es obligatorio.' });
+            }
+
+            // 2. Validar formato internacional (E.164)
+            const cleanPhone = userData.telefono.trim().replace(/[^\d+]/g, '');
+            const phoneRegex = /^\+[1-9]\d{9,14}$/;
+            if (!phoneRegex.test(cleanPhone)) {
+                return res.status(400).json({ success: false, message: 'El número de teléfono debe estar en formato internacional, iniciando con + (ej: +573001234567).' });
+            }
+
+            // 3. Evitar duplicación de teléfono excluyendo al usuario actual
+            const phoneCheck = await db.query('SELECT id_usuario FROM Usuarios WHERE telefono = $1 AND id_usuario != $2', [cleanPhone, id]);
+            if (phoneCheck.rows.length > 0) {
+                return res.status(400).json({ success: false, message: 'El número de teléfono ya está registrado por otro usuario.' });
+            }
+
+            userData.telefono = cleanPhone;
             
             let contrasenaHash = null;
             if (userData.password && userData.password.trim() !== '') {

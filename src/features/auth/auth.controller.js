@@ -487,6 +487,25 @@ class AuthController {
     static async register(req, res) {
         try {
             const { nombre, email, password, telefono } = req.body;
+
+            // 1. Validar obligatoriedad del teléfono
+            if (!telefono || telefono.trim() === '') {
+                return res.status(400).json({ success: false, message: 'El número de teléfono es obligatorio.' });
+            }
+
+            // 2. Validar formato internacional (E.164)
+            const cleanPhone = telefono.trim().replace(/[^\d+]/g, '');
+            const phoneRegex = /^\+[1-9]\d{9,14}$/;
+            if (!phoneRegex.test(cleanPhone)) {
+                return res.status(400).json({ success: false, message: 'El número de teléfono debe estar en formato internacional, iniciando con + (ej: +573001234567).' });
+            }
+
+            // 3. Evitar duplicación de teléfono
+            const phoneCheck = await db.query('SELECT id_usuario FROM Usuarios WHERE telefono = $1', [cleanPhone]);
+            if (phoneCheck.rows.length > 0) {
+                return res.status(400).json({ success: false, message: 'El número de teléfono ya está registrado por otro usuario.' });
+            }
+
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -497,7 +516,7 @@ class AuthController {
                 tipo_documento: 'CC', 
                 documento: 'REG-' + Date.now(), 
                 email, 
-                telefono: telefono || '', 
+                telefono: cleanPhone, 
                 contrasena: hashedPassword 
             };
             
