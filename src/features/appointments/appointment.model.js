@@ -77,10 +77,24 @@ class AppointmentModel {
     static async create(data) {
         const { id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, detalles_json } = data;
         
+        const cliId = id_cliente ? parseInt(id_cliente) : 1;
+        const barbId = id_barbero ? parseInt(id_barbero) : 1;
+        const servId = id_servicio ? parseInt(id_servicio) : 1;
+        const horaStart = hora_inicio || '09:00';
+        
+        let horaEnd = hora_fin;
+        if (!horaEnd) {
+            const parts = horaStart.split(':');
+            let h = parseInt(parts[0]) || 9;
+            let m = (parseInt(parts[1]) || 0) + 30;
+            if (m >= 60) { h += 1; m -= 60; }
+            horaEnd = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        }
+
         let serviceInfo = null;
-        if (id_servicio) {
+        if (servId) {
             try {
-                const sRes = await db.query('SELECT nombre, precio_neto FROM Servicios WHERE id_servicio = $1', [id_servicio]);
+                const sRes = await db.query('SELECT nombre, precio_neto FROM Servicios WHERE id_servicio = $1', [servId]);
                 if (sRes.rows.length > 0) serviceInfo = sRes.rows[0];
             } catch (e) {
                 console.error("Error fetching service details for appointment create:", e);
@@ -93,10 +107,10 @@ class AppointmentModel {
         }
         
         let serviciosArr = finalDetalles.servicios || [];
-        if (serviciosArr.length === 0 && id_servicio) {
+        if (serviciosArr.length === 0 && servId) {
             serviciosArr = [{
-                id_servicio: parseInt(id_servicio),
-                nombre: serviceInfo ? serviceInfo.nombre : `Servicio #${id_servicio}`,
+                id_servicio: servId,
+                nombre: serviceInfo ? serviceInfo.nombre : `Servicio #${servId}`,
                 precio: serviceInfo ? parseFloat(serviceInfo.precio_neto) : 0,
                 cantidad: 1
             }];
@@ -111,7 +125,7 @@ class AppointmentModel {
                     };
                 } else if (typeof s === 'object' && s !== null) {
                     return {
-                        id_servicio: s.id_servicio || id_servicio,
+                        id_servicio: s.id_servicio || servId,
                         nombre: s.nombre || (serviceInfo ? serviceInfo.nombre : 'Servicio'),
                         precio: s.precio !== undefined ? parseFloat(s.precio) : (serviceInfo ? parseFloat(serviceInfo.precio_neto) : 0),
                         cantidad: s.cantidad || 1
@@ -132,7 +146,7 @@ class AppointmentModel {
             RETURNING id_cita
         `;
         
-        const values = [id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, detallesStr, precioTotal];
+        const values = [cliId, barbId, servId, fecha || new Date().toISOString().split('T')[0], horaStart, horaEnd, detallesStr, precioTotal];
         const result = await db.query(query, values);
         return result.rows[0].id_cita;
     }

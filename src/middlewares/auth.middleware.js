@@ -32,9 +32,8 @@ const checkPermission = (modulo, accion) => {
             return next();
         }
 
-        // Permitir a Barbero / Empleado LEER y ACTUALIZAR el módulo de Citas
-        const role = (req.user.rol || '').toLowerCase();
-        if ((role === 'barbero' || role === 'empleado') && (modulo || '').toLowerCase() === 'citas' && (accion === 'leer' || accion === 'actualizar')) {
+        // Permitir a todos los usuarios autenticados (Cliente, Barbero, Empleado, Admin) CREAR, LEER y ACTUALIZAR Citas
+        if ((modulo || '').toLowerCase() === 'citas' && ['crear', 'leer', 'actualizar'].includes((accion || '').toLowerCase())) {
             return next();
         }
         
