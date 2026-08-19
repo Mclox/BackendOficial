@@ -10,6 +10,15 @@ class WhatsAppService {
      * @param {string} text Contenido del mensaje a enviar
      */
     static async sendMessage(to, text) {
+        // En esta versión, el envío automático por API (Meta/Twilio) está deshabilitado temporalmente.
+        // Se preserva toda la lógica para que al cambiar WHATSAPP_AUTO_SEND=true en .env vuelva a funcionar automáticamente.
+        const autoSendEnabled = process.env.WHATSAPP_AUTO_SEND === 'true';
+        if (!autoSendEnabled) {
+            console.log(`📱 [WhatsApp Manual - API Deshabilitada] Destinatario: ${to}`);
+            console.log(`💬 Mensaje preparado: "${text}"`);
+            return { success: true, mode: 'manual' };
+        }
+
         if (!to) {
             console.log("⚠️ [WhatsApp] No se proporcionó número de teléfono para enviar el mensaje.");
             return false;
