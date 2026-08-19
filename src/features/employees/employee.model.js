@@ -3,7 +3,7 @@ const db = require('../../config/db');
 class EmployeeModel {
     static async getAll() {
         const result = await db.query(`
-            SELECT b.id_barbero as id_empleado, b.id_usuario, b.estado, b.tipo_contrato as tipo_esquema, 
+            SELECT b.id_barbero, b.id_barbero as id_empleado, b.id_usuario, b.estado, b.tipo_contrato as tipo_esquema, 
                    b.porcentaje_ganancia as porcentaje_comision, b.hora_inicio, b.hora_fin,
                    u.nombre, u.email, u.telefono, u.direccion, 'Barbero' as cargo, '' as apellido,
                    u.tipo_documento, u.documento

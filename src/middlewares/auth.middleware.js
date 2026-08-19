@@ -26,8 +26,9 @@ const checkPermission = (modulo, accion) => {
             return next();
         }
 
-        // El Cliente o Barbero puede leer el módulo Clientes para agendar citas
-        if ((req.user.rol === 'Cliente' || req.user.rol === 'Barbero') && modulo === 'Clientes' && accion === 'leer') {
+        // Permitir a todos los usuarios autenticados LEER los módulos públicos necesarios para citas y catálogo (Servicios, Empleados, Clientes, Productos)
+        const publicReadModules = ['servicios', 'empleados', 'clientes', 'productos'];
+        if (accion === 'leer' && publicReadModules.includes((modulo || '').toLowerCase())) {
             return next();
         }
         
