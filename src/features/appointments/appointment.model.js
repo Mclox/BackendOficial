@@ -3,7 +3,15 @@ const db = require('../../config/db');
 class AppointmentModel {
     static async getAll() {
         const result = await db.query(`
-            SELECT c.*, COALESCE(u_cli.nombre, cl.nombre_invitado) as cliente_nombre, u_bar.nombre as barbero_nombre, s.nombre as servicio_nombre
+            SELECT c.*, 
+                   COALESCE(u_cli.nombre, cl.nombre_invitado) as cliente_nombre, 
+                   u_cli.telefono as cliente_telefono,
+                   u_cli.documento as cliente_documento,
+                   u_bar.nombre as barbero_nombre, 
+                   u_bar.telefono as barbero_telefono,
+                   u_bar.documento as barbero_documento,
+                   s.nombre as servicio_nombre,
+                   s.precio_neto as servicio_precio
             FROM Citas c
             LEFT JOIN Clientes cl ON c.id_cliente = cl.id_cliente
             LEFT JOIN Usuarios u_cli ON cl.id_usuario = u_cli.id_usuario
@@ -12,20 +20,119 @@ class AppointmentModel {
             LEFT JOIN Servicios s ON c.id_servicio = s.id_servicio
             ORDER BY c.fecha DESC, c.hora_inicio DESC
         `);
-        return result.rows;
+
+        return result.rows.map(row => {
+            let detalles = row.detalles_json;
+            if (typeof detalles === 'string') {
+                try { detalles = JSON.parse(detalles); } catch (e) { detalles = {}; }
+            }
+            if (!detalles || typeof detalles !== 'object') detalles = {};
+            
+            let serviciosArr = detalles.servicios || [];
+            if (Array.isArray(serviciosArr)) {
+                serviciosArr = serviciosArr.map(s => {
+                    if (typeof s === 'number' || typeof s === 'string') {
+                        return {
+                            id_servicio: parseInt(s),
+                            nombre: row.servicio_nombre || `Servicio #${s}`,
+                            precio: parseFloat(row.servicio_precio || 0),
+                            cantidad: 1
+                        };
+                    } else if (typeof s === 'object' && s !== null) {
+                        return {
+                            id_servicio: s.id_servicio || s.id || row.id_servicio,
+                            nombre: s.nombre || row.servicio_nombre || `Servicio #${s.id_servicio || row.id_servicio}`,
+                            precio: s.precio !== undefined ? parseFloat(s.precio) : parseFloat(row.servicio_precio || 0),
+                            cantidad: s.cantidad || 1
+                        };
+                    }
+                    return s;
+                });
+            } else if (row.id_servicio) {
+                serviciosArr = [{
+                    id_servicio: row.id_servicio,
+                    nombre: row.servicio_nombre || 'Servicio',
+                    precio: parseFloat(row.servicio_precio || 0),
+                    cantidad: 1
+                }];
+            }
+
+            detalles.servicios = serviciosArr;
+            detalles.productos = detalles.productos || [];
+
+            let totalEstimado = parseFloat(row.precio_total || 0);
+            if (totalEstimado === 0 && serviciosArr.length > 0) {
+                totalEstimado = serviciosArr.reduce((sum, item) => sum + ((item.precio || 0) * (item.cantidad || 1)), 0);
+            }
+
+            return {
+                ...row,
+                detalles_json: detalles,
+                precio_total: totalEstimado,
+                precio_neto: totalEstimado
+            };
+        });
     }
 
     static async create(data) {
         const { id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, detalles_json } = data;
-        const detallesStr = typeof detalles_json === 'object' ? JSON.stringify(detalles_json) : detalles_json;
+        
+        let serviceInfo = null;
+        if (id_servicio) {
+            try {
+                const sRes = await db.query('SELECT nombre, precio_neto FROM Servicios WHERE id_servicio = $1', [id_servicio]);
+                if (sRes.rows.length > 0) serviceInfo = sRes.rows[0];
+            } catch (e) {
+                console.error("Error fetching service details for appointment create:", e);
+            }
+        }
+
+        let finalDetalles = detalles_json || {};
+        if (typeof finalDetalles === 'string') {
+            try { finalDetalles = JSON.parse(finalDetalles); } catch (e) { finalDetalles = {}; }
+        }
+        
+        let serviciosArr = finalDetalles.servicios || [];
+        if (serviciosArr.length === 0 && id_servicio) {
+            serviciosArr = [{
+                id_servicio: parseInt(id_servicio),
+                nombre: serviceInfo ? serviceInfo.nombre : `Servicio #${id_servicio}`,
+                precio: serviceInfo ? parseFloat(serviceInfo.precio_neto) : 0,
+                cantidad: 1
+            }];
+        } else {
+            serviciosArr = serviciosArr.map(s => {
+                if (typeof s === 'number' || typeof s === 'string') {
+                    return {
+                        id_servicio: parseInt(s),
+                        nombre: serviceInfo ? serviceInfo.nombre : `Servicio #${s}`,
+                        precio: serviceInfo ? parseFloat(serviceInfo.precio_neto) : 0,
+                        cantidad: 1
+                    };
+                } else if (typeof s === 'object' && s !== null) {
+                    return {
+                        id_servicio: s.id_servicio || id_servicio,
+                        nombre: s.nombre || (serviceInfo ? serviceInfo.nombre : 'Servicio'),
+                        precio: s.precio !== undefined ? parseFloat(s.precio) : (serviceInfo ? parseFloat(serviceInfo.precio_neto) : 0),
+                        cantidad: s.cantidad || 1
+                    };
+                }
+                return s;
+            });
+        }
+        finalDetalles.servicios = serviciosArr;
+        finalDetalles.productos = finalDetalles.productos || [];
+
+        const precioTotal = serviciosArr.reduce((sum, item) => sum + ((item.precio || 0) * (item.cantidad || 1)), 0);
+        const detallesStr = JSON.stringify(finalDetalles);
 
         const query = `
-            INSERT INTO Citas (id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, estado, detalles_json)
-            VALUES ($1, $2, $3, $4, $5, $6, 'pendiente', $7)
+            INSERT INTO Citas (id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, estado, detalles_json, precio_total)
+            VALUES ($1, $2, $3, $4, $5, $6, 'pendiente', $7, $8)
             RETURNING id_cita
         `;
         
-        const values = [id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, detallesStr || null];
+        const values = [id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, detallesStr, precioTotal];
         const result = await db.query(query, values);
         return result.rows[0].id_cita;
     }

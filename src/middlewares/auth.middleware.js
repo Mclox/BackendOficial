@@ -31,6 +31,12 @@ const checkPermission = (modulo, accion) => {
         if (accion === 'leer' && publicReadModules.includes((modulo || '').toLowerCase())) {
             return next();
         }
+
+        // Permitir a Barbero / Empleado LEER y ACTUALIZAR el módulo de Citas
+        const role = (req.user.rol || '').toLowerCase();
+        if ((role === 'barbero' || role === 'empleado') && (modulo || '').toLowerCase() === 'citas' && (accion === 'leer' || accion === 'actualizar')) {
+            return next();
+        }
         
         try {
             // Buscamos el rol en PostgreSQL usando db.query
