@@ -53,10 +53,15 @@ class AppointmentController {
     }
 
     static async createPublicBooking(req, res) {
-        const { clienteData, bookingData } = req.body;
+        const clienteData = req.body.clienteData || req.body.cliente || { nombre: 'Cliente', email: 'cliente@barber.com' };
+        const bookingData = req.body.bookingData || req.body.booking || req.body;
         try {
-            if (!clienteData || !bookingData) {
+            if (!clienteData || !bookingData || !bookingData.fecha || !bookingData.hora_inicio) {
                 return res.status(400).json({ success: false, message: 'Datos incompletos para procesar la reserva.' });
+            }
+
+            if (!bookingData.id_servicios && bookingData.id_servicio) {
+                bookingData.id_servicios = [bookingData.id_servicio];
             }
 
             const today = new Date();
@@ -202,18 +207,40 @@ class AppointmentController {
 
     static async createAppointment(req, res) {
         try {
-            const id = await AppointmentModel.create(req.body);
+            const body = { ...req.body };
+
+            // Si el usuario autenticado es un Cliente, resolver su id_cliente real de la BD
+            if (req.user && (req.user.rol === 'Cliente' || req.user.rol === 'client')) {
+                const clientRes = await db.query('SELECT id_cliente FROM Clientes WHERE id_usuario = $1', [req.user.id]);
+                if (clientRes.rows.length > 0) {
+                    body.id_cliente = clientRes.rows[0].id_cliente;
+                } else {
+                    const insRes = await db.query(
+                        "INSERT INTO Clientes (id_usuario, nombre_invitado, fecha_registro) VALUES ($1, $2, CURRENT_DATE) RETURNING id_cliente",
+                        [req.user.id, req.user.email || 'Cliente Registrado']
+                    );
+                    if (insRes.rows.length > 0) {
+                        body.id_cliente = insRes.rows[0].id_cliente;
+                    }
+                }
+            }
+
+            const id = await AppointmentModel.create(body);
             
             MailService.sendNotificationOnCreation(id).catch(e => console.error("Error al enviar notificaciones de confirmación:", e));
 
             await NotificationService.createNotification({
                 modulo: 'Citas',
                 accion: 'creacion',
-                descripcion: `Se agendó una nueva cita (ID: ${id}) para la fecha ${req.body.fecha} a las ${req.body.hora_inicio}.`,
+                descripcion: `Se agendó una nueva cita (ID: ${id}) para la fecha ${body.fecha} a las ${body.hora_inicio}.`,
                 req
-            });
+            }).catch(e => console.error("Error al crear notificación de cita:", e));
+
             res.status(201).json({ success: true, id_cita: id });
-        } catch (error) { res.status(500).json({ error: error.message }); }
+        } catch (error) { 
+            console.error("Error en createAppointment:", error);
+            res.status(500).json({ success: false, error: error.message }); 
+        }
     }
 
     static async updateAppointment(req, res) {

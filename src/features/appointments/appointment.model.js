@@ -77,9 +77,9 @@ class AppointmentModel {
     static async create(data) {
         const { id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, detalles_json } = data;
         
-        const cliId = id_cliente ? parseInt(id_cliente) : 1;
-        const barbId = id_barbero ? parseInt(id_barbero) : 1;
-        const servId = id_servicio ? parseInt(id_servicio) : 1;
+        let cliId = id_cliente ? parseInt(id_cliente) : 1;
+        let barbId = id_barbero ? parseInt(id_barbero) : 1;
+        let servId = id_servicio ? parseInt(id_servicio) : 1;
         const horaStart = hora_inicio || '09:00';
         
         let horaEnd = hora_fin;
@@ -89,6 +89,57 @@ class AppointmentModel {
             let m = (parseInt(parts[1]) || 0) + 30;
             if (m >= 60) { h += 1; m -= 60; }
             horaEnd = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        }
+
+        // 1. Resolver id_cliente válido en la tabla Clientes
+        try {
+            const cRes = await db.query('SELECT id_cliente FROM Clientes WHERE id_cliente = $1', [cliId]);
+            if (cRes.rows.length === 0) {
+                const uRes = await db.query('SELECT id_cliente FROM Clientes WHERE id_usuario = $1', [cliId]);
+                if (uRes.rows.length > 0) {
+                    cliId = uRes.rows[0].id_cliente;
+                } else {
+                    const insRes = await db.query(
+                        "INSERT INTO Clientes (id_usuario, nombre_invitado, fecha_registro) VALUES ($1, 'Cliente Registrado', CURRENT_DATE) RETURNING id_cliente",
+                        [cliId]
+                    );
+                    if (insRes.rows.length > 0) {
+                        cliId = insRes.rows[0].id_cliente;
+                    } else {
+                        const firstCli = await db.query('SELECT id_cliente FROM Clientes LIMIT 1');
+                        if (firstCli.rows.length > 0) cliId = firstCli.rows[0].id_cliente;
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Error resolviendo id_cliente en AppointmentModel.create:", err.message);
+        }
+
+        // 2. Resolver id_barbero válido en la tabla Barberos
+        try {
+            const bRes = await db.query('SELECT id_barbero FROM Barberos WHERE id_barbero = $1', [barbId]);
+            if (bRes.rows.length === 0) {
+                const uRes = await db.query('SELECT id_barbero FROM Barberos WHERE id_usuario = $1', [barbId]);
+                if (uRes.rows.length > 0) {
+                    barbId = uRes.rows[0].id_barbero;
+                } else {
+                    const firstBarb = await db.query('SELECT id_barbero FROM Barberos LIMIT 1');
+                    if (firstBarb.rows.length > 0) barbId = firstBarb.rows[0].id_barbero;
+                }
+            }
+        } catch (err) {
+            console.error("Error resolviendo id_barbero en AppointmentModel.create:", err.message);
+        }
+
+        // 3. Resolver id_servicio válido en la tabla Servicios
+        try {
+            const sCheck = await db.query('SELECT id_servicio FROM Servicios WHERE id_servicio = $1', [servId]);
+            if (sCheck.rows.length === 0) {
+                const firstServ = await db.query('SELECT id_servicio FROM Servicios LIMIT 1');
+                if (firstServ.rows.length > 0) servId = firstServ.rows[0].id_servicio;
+            }
+        } catch (err) {
+            console.error("Error resolviendo id_servicio en AppointmentModel.create:", err.message);
         }
 
         let serviceInfo = null;
