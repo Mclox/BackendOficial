@@ -188,16 +188,15 @@ class AppointmentModel {
         finalDetalles.servicios = serviciosArr;
         finalDetalles.productos = finalDetalles.productos || [];
 
-        const precioTotal = serviciosArr.reduce((sum, item) => sum + ((item.precio || 0) * (item.cantidad || 1)), 0);
         const detallesStr = JSON.stringify(finalDetalles);
 
         const query = `
-            INSERT INTO Citas (id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, estado, detalles_json, precio_total)
-            VALUES ($1, $2, $3, $4, $5, $6, 'pendiente', $7, $8)
+            INSERT INTO Citas (id_cliente, id_barbero, id_servicio, fecha, hora_inicio, hora_fin, estado, detalles_json)
+            VALUES ($1, $2, $3, $4, $5, $6, 'pendiente', $7)
             RETURNING id_cita
         `;
         
-        const values = [cliId, barbId, servId, fecha || new Date().toISOString().split('T')[0], horaStart, horaEnd, detallesStr, precioTotal];
+        const values = [cliId, barbId, servId, fecha || new Date().toISOString().split('T')[0], horaStart, horaEnd, detallesStr];
         const result = await db.query(query, values);
         return result.rows[0].id_cita;
     }
