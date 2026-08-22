@@ -22,6 +22,7 @@ app.get('/', (req, res) => {
 
 // --- MÓDULOS DEL BACKEND HABILITADOS Y OPERATIVOS EN POSTGRES ---
 app.use('/api/auth', require('./features/auth/auth.routes'));
+app.use('/api/app-version', require('./features/app-version/app-version.routes'));
 app.use('/api/users', require('./features/users/user.routes'));
 app.use('/api/roles', require('./features/roles/role.routes'));
 app.use('/api/notifications', require('./features/notifications/notification.routes'));

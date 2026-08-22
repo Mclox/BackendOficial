@@ -275,3 +275,13 @@ CREATE OR REPLACE TRIGGER trg_entradas_productos_stock
 AFTER INSERT OR UPDATE ON Entradas_Productos
 FOR EACH ROW
 EXECUTE FUNCTION fn_trg_entradas_productos_stock();
+
+-- 19. Control de versiones de la Aplicación Móvil
+CREATE TABLE IF NOT EXISTS App_Version (
+    id SERIAL PRIMARY KEY,
+    version_name VARCHAR(50) NOT NULL,
+    version_code INT UNIQUE NOT NULL,
+    download_url TEXT NOT NULL,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
