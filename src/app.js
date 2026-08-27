@@ -17,7 +17,7 @@ app.get('/uploads/products/:filename', (req, res) => {
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get('/', (req, res) => {
-    res.send('API de BarberSite V2 funcionando correctamente (TEST_DEPLOY_ACTIVE)');
+    res.send('API de BarberSite V2 funcionando correctamente \uD83D\uDC88');
 });
 
 // --- MÓDULOS DEL BACKEND HABILITADOS Y OPERATIVOS EN POSTGRES ---
