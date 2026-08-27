@@ -1,6 +1,33 @@
+const supabase = require('../../config/supabase');
+const path = require('path');
 const UserModel = require('./user.model');
 const bcrypt = require('bcryptjs');
 const db = require('../../config/db');
+
+
+async function uploadBase64ToSupabase(base64Str) {
+    const matches = base64Str.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+        throw new Error('Formato Base64 inválido');
+    }
+    const mimeType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = mimeType.split('/')[1] || 'jpg';
+    const filename = `${uniqueSuffix}.${extension}`;
+
+    const { data, error } = await supabase.storage
+        .from('products')
+        .upload(filename, buffer, {
+            contentType: mimeType,
+            upsert: true
+        });
+
+    if (error) {
+        throw new Error('Error subiendo imagen Base64 a Supabase: ' + error.message);
+    }
+    return `/uploads/products/${filename}`;
+}
 
 class UserController {
     static async getUsers(req, res) {
