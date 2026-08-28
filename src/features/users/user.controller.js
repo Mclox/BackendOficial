@@ -141,6 +141,19 @@ class UserController {
             
             
   
+            
+            // Log de depuración en la tabla de Notificaciones
+            try {
+                await NotificationService.createNotification({
+                    modulo: 'Usuarios',
+                    accion: 'edicion',
+                    descripcion: `DEPURACION: Actualizando usuario ID ${id}. avatar en body: ${!!req.body.avatar}. avatar start: ${req.body.avatar ? req.body.avatar.substring(0, 30) : 'none'}. img final: ${userData.img}. body keys: ${Object.keys(req.body).join(', ')}`,
+                    req
+                });
+            } catch (notifyErr) {
+                console.error('Error al crear notificación de depuración:', notifyErr);
+            }
+  
             const success = await UserModel.update(id, userData);
             if (success) {
                 if (contrasenaHash) {
