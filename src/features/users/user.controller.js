@@ -76,6 +76,41 @@ class UserController {
             const { id } = req.params;
             const userData = { ...req.body };
 
+            // Subida de imagen por archivo (Multer) o Base64
+            if (req.file) {
+                try {
+                    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                    const filename = uniqueSuffix + path.extname(req.file.originalname);
+                    const { data, error } = await supabase.storage
+                        .from('products')
+                        .upload(filename, req.file.buffer, {
+                            contentType: req.file.mimetype,
+                            upsert: true
+                        });
+                    if (error) throw error;
+                    userData.img = `/uploads/products/${filename}`;
+                } catch (uploadError) {
+                    console.error('Error subiendo req.file a Supabase:', uploadError);
+                    return res.status(500).json({ success: false, message: 'Error al subir la imagen de perfil a Supabase.', error: uploadError.message });
+                }
+            } else if (userData.avatar && userData.avatar.startsWith('data:image/')) {
+                try {
+                    userData.img = await uploadBase64ToSupabase(userData.avatar);
+                } catch (uploadError) {
+                    console.error('Error subiendo avatar Base64 a Supabase:', uploadError);
+                    return res.status(500).json({ success: false, message: 'Error al subir la foto de perfil en Base64 a Supabase.', error: uploadError.message });
+                }
+                delete userData.avatar;
+            } else if (userData.img && userData.img.startsWith('data:image/')) {
+                try {
+                    userData.img = await uploadBase64ToSupabase(userData.img);
+                } catch (uploadError) {
+                    console.error('Error subiendo img Base64 a Supabase:', uploadError);
+                    return res.status(500).json({ success: false, message: 'Error al subir la foto de perfil en Base64 a Supabase.', error: uploadError.message });
+                }
+            }
+  
+
             // 1. Validar obligatoriedad del teléfono
             if (!userData.telefono || userData.telefono.trim() === '') {
                 return res.status(400).json({ success: false, message: 'El número de teléfono es obligatorio.' });
