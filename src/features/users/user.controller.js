@@ -109,7 +109,7 @@ class UserController {
                 await NotificationService.createNotification({
                     modulo: 'Usuarios',
                     accion: 'edicion',
-                    descripcion: `DEPURACION: Actualizando usuario ID ${id}. avatar en body: ${!!req.body.avatar}. img final: ${userData.img}. body keys: ${Object.keys(req.body).join(', ')}`,
+                    descripcion: `DEPURACION: Actualizando usuario ID ${id}. avatar en body: ${!!req.body.avatar}. avatar start: ${req.body.avatar ? req.body.avatar.substring(0, 30) : 'none'}. img final: ${userData.img}. body keys: ${Object.keys(req.body).join(', ')}`,
                     req
                 });
             } catch (notifyErr) {
