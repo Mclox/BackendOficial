@@ -1,3 +1,4 @@
+const NotificationService = require('../notifications/notification.service');
 const supabase = require('../../config/supabase');
 const path = require('path');
 const UserModel = require('./user.model');
@@ -102,6 +103,19 @@ class UserController {
             }
             delete userData.password;
 
+            
+            // Log de depuración en la tabla de Notificaciones
+            try {
+                await NotificationService.createNotification({
+                    modulo: 'Usuarios',
+                    accion: 'edicion',
+                    descripcion: `DEPURACION: Actualizando usuario ID ${id}. avatar en body: ${!!req.body.avatar}. img final: ${userData.img}. body keys: ${Object.keys(req.body).join(', ')}`,
+                    req
+                });
+            } catch (notifyErr) {
+                console.error('Error al crear notificación de depuración:', notifyErr);
+            }
+  
             const success = await UserModel.update(id, userData);
             if (success) {
                 if (contrasenaHash) {
