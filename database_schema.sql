@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS Roles (
 -- 2. Usuarios
 CREATE TABLE IF NOT EXISTS Usuarios (
     id_usuario SERIAL PRIMARY KEY,
-    id_rol INT NOT NULL REFERENCES Roles(id_rol) ON DELETE RESTRICT,
+    id_rol INT NOT NULL REFERENCES Roles (id_rol) ON DELETE RESTRICT,
     nombre VARCHAR(150) NOT NULL,
     tipo_documento VARCHAR(10) DEFAULT 'CC' NOT NULL,
     documento VARCHAR(30) UNIQUE NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS Usuarios (
 -- 3. Clientes
 CREATE TABLE IF NOT EXISTS Clientes (
     id_cliente SERIAL PRIMARY KEY,
-    id_usuario INT NULL REFERENCES Usuarios(id_usuario) ON DELETE CASCADE,
+    id_usuario INT NULL REFERENCES Usuarios (id_usuario) ON DELETE CASCADE,
     nombre_invitado VARCHAR(150),
     telefono_invitado VARCHAR(20),
     email_invitado VARCHAR(100),
@@ -41,10 +41,10 @@ CREATE TABLE IF NOT EXISTS Clientes (
 -- 4. Barberos
 CREATE TABLE IF NOT EXISTS Barberos (
     id_barbero SERIAL PRIMARY KEY,
-    id_usuario INT NOT NULL REFERENCES Usuarios(id_usuario) ON DELETE CASCADE,
+    id_usuario INT NOT NULL REFERENCES Usuarios (id_usuario) ON DELETE CASCADE,
     estado VARCHAR(20) DEFAULT 'Activo' NOT NULL,
     tipo_contrato VARCHAR(50) DEFAULT 'porcentaje' NOT NULL,
-    porcentaje_ganancia DECIMAL(5,2),
+    porcentaje_ganancia DECIMAL(5, 2),
     hora_inicio TIME,
     hora_fin TIME
 );
@@ -64,11 +64,11 @@ CREATE TABLE IF NOT EXISTS Marcas (
 -- 7. Productos
 CREATE TABLE IF NOT EXISTS Productos (
     id_producto SERIAL PRIMARY KEY,
-    id_categoria INT REFERENCES Categorias_Productos(id_categoria) ON DELETE SET NULL,
-    id_marca INT REFERENCES Marcas(id_marca) ON DELETE SET NULL,
+    id_categoria INT REFERENCES Categorias_Productos (id_categoria) ON DELETE SET NULL,
+    id_marca INT REFERENCES Marcas (id_marca) ON DELETE SET NULL,
     nombre VARCHAR(150) NOT NULL,
-    precio_neto DECIMAL(12,2) NOT NULL,
-    iva_porcentaje DECIMAL(5,2) DEFAULT 19.00 NOT NULL,
+    precio_neto DECIMAL(12, 2) NOT NULL,
+    iva_porcentaje DECIMAL(5, 2) DEFAULT 19.00 NOT NULL,
     stock INT DEFAULT 0 NOT NULL,
     codigo VARCHAR(50) UNIQUE,
     descripcion TEXT,
@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS Productos (
 CREATE TABLE IF NOT EXISTS Servicios (
     id_servicio SERIAL PRIMARY KEY,
     nombre VARCHAR(150) NOT NULL,
-    precio_neto DECIMAL(12,2) NOT NULL,
-    iva_porcentaje DECIMAL(5,2) DEFAULT 0.00 NOT NULL,
+    precio_neto DECIMAL(12, 2) NOT NULL,
+    iva_porcentaje DECIMAL(5, 2) DEFAULT 0.00 NOT NULL,
     duracion_minutos INT NOT NULL,
     estado VARCHAR(20) DEFAULT 'Activo' NOT NULL,
     descripcion TEXT
@@ -91,9 +91,9 @@ CREATE TABLE IF NOT EXISTS Servicios (
 -- 9. Citas
 CREATE TABLE IF NOT EXISTS Citas (
     id_cita SERIAL PRIMARY KEY,
-    id_cliente INT NOT NULL REFERENCES Clientes(id_cliente) ON DELETE CASCADE,
-    id_barbero INT NOT NULL REFERENCES Barberos(id_barbero) ON DELETE CASCADE,
-    id_servicio INT NOT NULL REFERENCES Servicios(id_servicio) ON DELETE RESTRICT,
+    id_cliente INT NOT NULL REFERENCES Clientes (id_cliente) ON DELETE CASCADE,
+    id_barbero INT NOT NULL REFERENCES Barberos (id_barbero) ON DELETE CASCADE,
+    id_servicio INT NOT NULL REFERENCES Servicios (id_servicio) ON DELETE RESTRICT,
     fecha DATE NOT NULL,
     hora_inicio VARCHAR(10) NOT NULL,
     hora_fin VARCHAR(10) NOT NULL,
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS Notificaciones (
     modulo VARCHAR(100) NOT NULL,
     accion VARCHAR(100) NOT NULL,
     descripcion TEXT NOT NULL,
-    usuario_id INT NULL REFERENCES Usuarios(id_usuario) ON DELETE SET NULL,
+    usuario_id INT NULL REFERENCES Usuarios (id_usuario) ON DELETE SET NULL,
     usuario_nombre VARCHAR(100) NULL,
     leido BOOLEAN DEFAULT FALSE,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
@@ -118,32 +118,34 @@ CREATE TABLE IF NOT EXISTS Notificaciones (
 -- 11. Ventas
 CREATE TABLE IF NOT EXISTS Ventas (
     id_venta SERIAL PRIMARY KEY,
-    id_cliente INT NULL REFERENCES Clientes(id_cliente) ON DELETE SET NULL,
-    id_vendedor INT NOT NULL REFERENCES Usuarios(id_usuario) ON DELETE RESTRICT,
+    id_cliente INT NULL REFERENCES Clientes (id_cliente) ON DELETE SET NULL,
+    id_vendedor INT NOT NULL REFERENCES Usuarios (id_usuario) ON DELETE RESTRICT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     metodo_pago VARCHAR(50) NOT NULL,
-    total DECIMAL(12,2) DEFAULT 0.00 NOT NULL
+    total DECIMAL(12, 2) DEFAULT 0.00 NOT NULL
 );
 
 -- 12. Ventas Detalle
 CREATE TABLE IF NOT EXISTS Ventas_Detalle (
     id_detalle SERIAL PRIMARY KEY,
-    id_venta INT NOT NULL REFERENCES Ventas(id_venta) ON DELETE CASCADE,
-    tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('Producto', 'Servicio')),
-    id_producto INT NULL REFERENCES Productos(id_producto) ON DELETE SET NULL,
-    id_servicio INT NULL REFERENCES Servicios(id_servicio) ON DELETE SET NULL,
-    id_barbero INT NULL REFERENCES Barberos(id_barbero) ON DELETE SET NULL,
+    id_venta INT NOT NULL REFERENCES Ventas (id_venta) ON DELETE CASCADE,
+    tipo VARCHAR(20) NOT NULL CHECK (
+        tipo IN ('Producto', 'Servicio')
+    ),
+    id_producto INT NULL REFERENCES Productos (id_producto) ON DELETE SET NULL,
+    id_servicio INT NULL REFERENCES Servicios (id_servicio) ON DELETE SET NULL,
+    id_barbero INT NULL REFERENCES Barberos (id_barbero) ON DELETE SET NULL,
     cantidad INT NOT NULL,
-    precio_unitario_neto DECIMAL(12,2) NOT NULL,
-    iva_monto DECIMAL(12,2) NOT NULL,
-    subtotal_item DECIMAL(12,2) NOT NULL
+    precio_unitario_neto DECIMAL(12, 2) NOT NULL,
+    iva_monto DECIMAL(12, 2) NOT NULL,
+    subtotal_item DECIMAL(12, 2) NOT NULL
 );
 
 -- 13. Entradas Productos
 CREATE TABLE IF NOT EXISTS Entradas_Productos (
     id_entrada SERIAL PRIMARY KEY,
-    id_producto INT NOT NULL REFERENCES Productos(id_producto) ON DELETE CASCADE,
-    id_usuario INT NOT NULL REFERENCES Usuarios(id_usuario) ON DELETE RESTRICT,
+    id_producto INT NOT NULL REFERENCES Productos (id_producto) ON DELETE CASCADE,
+    id_usuario INT NOT NULL REFERENCES Usuarios (id_usuario) ON DELETE RESTRICT,
     cantidad INT NOT NULL,
     observaciones VARCHAR(255),
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -155,7 +157,7 @@ CREATE TABLE IF NOT EXISTS Entradas_Productos (
 -- 14. Proveedores
 CREATE TABLE IF NOT EXISTS Proveedores (
     id_proveedor SERIAL PRIMARY KEY,
-    id_marca INT REFERENCES Marcas(id_marca) ON DELETE SET NULL,
+    id_marca INT REFERENCES Marcas (id_marca) ON DELETE SET NULL,
     nombre VARCHAR(150) NOT NULL,
     documento VARCHAR(30) UNIQUE NOT NULL,
     representante VARCHAR(150),
@@ -167,26 +169,26 @@ CREATE TABLE IF NOT EXISTS Proveedores (
 -- 15. Compras
 CREATE TABLE IF NOT EXISTS Compras (
     id_compra SERIAL PRIMARY KEY,
-    id_proveedor INT NOT NULL REFERENCES Proveedores(id_proveedor) ON DELETE RESTRICT,
+    id_proveedor INT NOT NULL REFERENCES Proveedores (id_proveedor) ON DELETE RESTRICT,
     fecha_compra TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    total DECIMAL(12,2) NOT NULL
+    total DECIMAL(12, 2) NOT NULL
 );
 
 -- 16. Detalle Compra
 CREATE TABLE IF NOT EXISTS Detalle_Compra (
     id_detalle_compra SERIAL PRIMARY KEY,
-    id_compra INT NOT NULL REFERENCES Compras(id_compra) ON DELETE CASCADE,
-    id_producto INT NOT NULL REFERENCES Productos(id_producto) ON DELETE RESTRICT,
+    id_compra INT NOT NULL REFERENCES Compras (id_compra) ON DELETE CASCADE,
+    id_producto INT NOT NULL REFERENCES Productos (id_producto) ON DELETE RESTRICT,
     cantidad INT NOT NULL,
-    precio_unitario DECIMAL(12,2) NOT NULL,
-    subtotal DECIMAL(12,2) NOT NULL
+    precio_unitario DECIMAL(12, 2) NOT NULL,
+    subtotal DECIMAL(12, 2) NOT NULL
 );
 
 -- 17. Devoluciones Proveedor
 CREATE TABLE IF NOT EXISTS Devoluciones_Proveedor (
     id_dev_prov SERIAL PRIMARY KEY,
-    id_detalle_compra INT NOT NULL REFERENCES Detalle_Compra(id_detalle_compra) ON DELETE CASCADE,
-    id_proveedor INT NOT NULL REFERENCES Proveedores(id_proveedor) ON DELETE RESTRICT,
+    id_detalle_compra INT NOT NULL REFERENCES Detalle_Compra (id_detalle_compra) ON DELETE CASCADE,
+    id_proveedor INT NOT NULL REFERENCES Proveedores (id_proveedor) ON DELETE RESTRICT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     motivo VARCHAR(255),
     cantidad_devuelta INT NOT NULL,
@@ -196,9 +198,9 @@ CREATE TABLE IF NOT EXISTS Devoluciones_Proveedor (
 -- 18. Devoluciones Stock
 CREATE TABLE IF NOT EXISTS Devoluciones_Stock (
     id_devolucion SERIAL PRIMARY KEY,
-    id_venta INT NOT NULL REFERENCES Ventas(id_venta) ON DELETE CASCADE,
-    id_producto INT NOT NULL REFERENCES Productos(id_producto) ON DELETE RESTRICT,
-    id_usuario INT NOT NULL REFERENCES Usuarios(id_usuario) ON DELETE RESTRICT,
+    id_venta INT NOT NULL REFERENCES Ventas (id_venta) ON DELETE CASCADE,
+    id_producto INT NOT NULL REFERENCES Productos (id_producto) ON DELETE RESTRICT,
+    id_usuario INT NOT NULL REFERENCES Usuarios (id_usuario) ON DELETE RESTRICT,
     cantidad INT NOT NULL,
     motivo VARCHAR(500) NOT NULL,
     estado VARCHAR(20) DEFAULT 'Activo' NOT NULL,
@@ -206,19 +208,31 @@ CREATE TABLE IF NOT EXISTS Devoluciones_Stock (
 );
 
 -- Índices recomendados para optimización
-CREATE INDEX IF NOT EXISTS idx_usuarios_rol ON Usuarios(id_rol);
-CREATE INDEX IF NOT EXISTS idx_clientes_usuario ON Clientes(id_usuario);
-CREATE INDEX IF NOT EXISTS idx_barberos_usuario ON Barberos(id_usuario);
-CREATE INDEX IF NOT EXISTS idx_productos_categoria ON Productos(id_categoria);
-CREATE INDEX IF NOT EXISTS idx_productos_marca ON Productos(id_marca);
-CREATE INDEX IF NOT EXISTS idx_citas_cliente ON Citas(id_cliente);
-CREATE INDEX IF NOT EXISTS idx_citas_barbero ON Citas(id_barbero);
-CREATE INDEX IF NOT EXISTS idx_citas_servicio ON Citas(id_servicio);
-CREATE INDEX IF NOT EXISTS idx_ventas_cliente ON Ventas(id_cliente);
-CREATE INDEX IF NOT EXISTS idx_ventas_vendedor ON Ventas(id_vendedor);
-CREATE INDEX IF NOT EXISTS idx_ventas_detalle_venta ON Ventas_Detalle(id_venta);
-CREATE INDEX IF NOT EXISTS idx_entradas_productos_prod ON Entradas_Productos(id_producto);
-CREATE INDEX IF NOT EXISTS idx_entradas_productos_user ON Entradas_Productos(id_usuario);
+CREATE INDEX IF NOT EXISTS idx_usuarios_rol ON Usuarios (id_rol);
+
+CREATE INDEX IF NOT EXISTS idx_clientes_usuario ON Clientes (id_usuario);
+
+CREATE INDEX IF NOT EXISTS idx_barberos_usuario ON Barberos (id_usuario);
+
+CREATE INDEX IF NOT EXISTS idx_productos_categoria ON Productos (id_categoria);
+
+CREATE INDEX IF NOT EXISTS idx_productos_marca ON Productos (id_marca);
+
+CREATE INDEX IF NOT EXISTS idx_citas_cliente ON Citas (id_cliente);
+
+CREATE INDEX IF NOT EXISTS idx_citas_barbero ON Citas (id_barbero);
+
+CREATE INDEX IF NOT EXISTS idx_citas_servicio ON Citas (id_servicio);
+
+CREATE INDEX IF NOT EXISTS idx_ventas_cliente ON Ventas (id_cliente);
+
+CREATE INDEX IF NOT EXISTS idx_ventas_vendedor ON Ventas (id_vendedor);
+
+CREATE INDEX IF NOT EXISTS idx_ventas_detalle_venta ON Ventas_Detalle (id_venta);
+
+CREATE INDEX IF NOT EXISTS idx_entradas_productos_prod ON Entradas_Productos (id_producto);
+
+CREATE INDEX IF NOT EXISTS idx_entradas_productos_user ON Entradas_Productos (id_usuario);
 
 -- TRIGGERS PARA SIMULAR LÓGICA AUTOMÁTICA DE STOCK Y TOTALES
 
@@ -284,4 +298,3 @@ CREATE TABLE IF NOT EXISTS App_Version (
     download_url TEXT NOT NULL,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
-

@@ -38,6 +38,18 @@ class UserController {
         } catch (error) { res.status(500).json({ success: false, message: error.message }); }
     }
 
+    static async getUserById(req, res) {
+        try {
+            const { id } = req.params;
+            const user = await UserModel.getById(id);
+            if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+            delete user.contrasena;
+            res.json({ success: true, data: user });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
     static async createUser(req, res) {
         try {
             const userData = { ...req.body };
@@ -74,7 +86,23 @@ class UserController {
     static async updateUser(req, res) {
         try {
             const { id } = req.params;
-            const userData = { ...req.body };
+            const existingUser = await UserModel.getById(id);
+            if (!existingUser) {
+                return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+            }
+
+            const userData = {
+                id_rol: req.body.id_rol || existingUser.id_rol,
+                nombre: req.body.nombre || existingUser.nombre,
+                tipo_documento: req.body.tipo_documento || existingUser.tipo_documento,
+                documento: req.body.documento || existingUser.documento,
+                email: req.body.email || existingUser.email,
+                telefono: req.body.telefono || existingUser.telefono,
+                direccion: req.body.direccion !== undefined ? req.body.direccion : existingUser.direccion,
+                estado: req.body.estado || existingUser.estado,
+                img: existingUser.img,
+                password: req.body.password
+            };
 
             // Subida de imagen por archivo (Multer) o Base64
             if (req.file) {
@@ -93,23 +121,23 @@ class UserController {
                     console.error('Error subiendo req.file a Supabase:', uploadError);
                     return res.status(500).json({ success: false, message: 'Error al subir la imagen de perfil a Supabase.', error: uploadError.message });
                 }
-            } else if (userData.avatar && userData.avatar.startsWith('data:image/')) {
+            } else if (req.body.avatar && req.body.avatar.startsWith('data:image/')) {
                 try {
-                    userData.img = await uploadBase64ToSupabase(userData.avatar);
+                    userData.img = await uploadBase64ToSupabase(req.body.avatar);
                 } catch (uploadError) {
                     console.error('Error subiendo avatar Base64 a Supabase:', uploadError);
                     return res.status(500).json({ success: false, message: 'Error al subir la foto de perfil en Base64 a Supabase.', error: uploadError.message });
                 }
-                delete userData.avatar;
-            } else if (userData.img && userData.img.startsWith('data:image/')) {
+            } else if (req.body.img && req.body.img.startsWith('data:image/')) {
                 try {
-                    userData.img = await uploadBase64ToSupabase(userData.img);
+                    userData.img = await uploadBase64ToSupabase(req.body.img);
                 } catch (uploadError) {
                     console.error('Error subiendo img Base64 a Supabase:', uploadError);
                     return res.status(500).json({ success: false, message: 'Error al subir la foto de perfil en Base64 a Supabase.', error: uploadError.message });
                 }
+            } else if (req.body.img || req.body.avatar) {
+                userData.img = req.body.img || req.body.avatar;
             }
-  
 
             // 1. Validar obligatoriedad del teléfono
             if (!userData.telefono || userData.telefono.trim() === '') {
@@ -138,22 +166,6 @@ class UserController {
             }
             delete userData.password;
 
-            
-            
-  
-            
-            // Log de depuración en la tabla de Notificaciones
-            try {
-                await NotificationService.createNotification({
-                    modulo: 'Usuarios',
-                    accion: 'edicion',
-                    descripcion: `DEPURACION: Actualizando usuario ID ${id}. avatar en body: ${!!req.body.avatar}. avatar start: ${req.body.avatar ? req.body.avatar.substring(0, 30) : 'none'}. img final: ${userData.img}. body keys: ${Object.keys(req.body).join(', ')}`,
-                    req
-                });
-            } catch (notifyErr) {
-                console.error('Error al crear notificación de depuración:', notifyErr);
-            }
-  
             const success = await UserModel.update(id, userData);
             if (success) {
                 if (contrasenaHash) {
@@ -164,7 +176,12 @@ class UserController {
                     const ClientModel = require('../clients/client.model');
                     await ClientModel.getOrCreateByUsuario(id);
                 }
-                res.json({ success: true, message: 'Usuario actualizado correctamente' });
+                res.json({
+                    success: true,
+                    message: 'Usuario actualizado correctamente',
+                    img: userData.img,
+                    data: { id_usuario: parseInt(id), img: userData.img }
+                });
             } else {
                 res.status(404).json({ success: false, message: 'Usuario no encontrado' });
             }

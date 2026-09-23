@@ -475,12 +475,57 @@ class AuthController {
                     id_usuario: user.id_usuario,
                     nombre: user.nombre,
                     email: user.email,
+                    telefono: user.telefono,
+                    direccion: user.direccion,
+                    documento: user.documento,
                     rol: user.rol_nombre,
+                    id_rol: user.id_rol,
+                    img: user.img,
                     permisos: permissions
                 }
             });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Error en login', error: error.message });
+        }
+    }
+
+    static async getProfile(req, res) {
+        try {
+            const query = `
+                SELECT u.id_usuario, u.id_rol, u.nombre, u.tipo_documento, u.documento, u.email, u.telefono, u.direccion, u.img, u.estado,
+                       r.nombre as rol_nombre, r.permisos as rol_permisos 
+                FROM Usuarios u 
+                JOIN Roles r ON u.id_rol = r.id_rol 
+                WHERE u.id_usuario = $1
+            `;
+            const result = await db.query(query, [req.user.id]);
+            const user = result.rows[0];
+            if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+
+            let permissions = [];
+            try {
+                permissions = user.rol_permisos ? (typeof user.rol_permisos === 'string' ? JSON.parse(user.rol_permisos) : user.rol_permisos) : [];
+            } catch (e) { console.error("Error parsing permissions in profile", e); }
+
+            res.json({
+                success: true,
+                user: {
+                    id_usuario: user.id_usuario,
+                    nombre: user.nombre,
+                    email: user.email,
+                    telefono: user.telefono,
+                    direccion: user.direccion,
+                    documento: user.documento,
+                    tipo_documento: user.tipo_documento,
+                    rol: user.rol_nombre,
+                    id_rol: user.id_rol,
+                    img: user.img,
+                    estado: user.estado,
+                    permisos: permissions
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Error al obtener perfil', error: error.message });
         }
     }
 
