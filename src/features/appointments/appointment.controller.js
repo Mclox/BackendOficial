@@ -64,20 +64,33 @@ class AppointmentController {
                 bookingData.id_servicios = [bookingData.id_servicio];
             }
 
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            const todayStr = `${year}-${month}-${day}`;
-            const currentMins = today.getHours() * 60 + today.getMinutes();
+            // Usar la zona horaria oficial de la barbería (Colombia: America/Bogota, UTC-5)
+            const colombiaFormatter = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/Bogota',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hourCycle: 'h23'
+            });
+            const parts = colombiaFormatter.formatToParts(new Date());
+            const getPart = (type) => parts.find(p => p.type === type)?.value || '00';
+            const todayStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+            const currentHours = parseInt(getPart('hour'), 10) || 0;
+            const currentMinutes = parseInt(getPart('minute'), 10) || 0;
+            const currentMins = currentHours * 60 + currentMinutes;
 
-            if (bookingData.fecha < todayStr) {
+            const selectedDateStr = (bookingData.fecha || '').toString().split('T')[0].trim();
+
+            if (selectedDateStr < todayStr) {
                 return res.status(400).json({ success: false, message: 'No se pueden agendar citas en fechas anteriores a la fecha actual.' });
             }
 
-            if (bookingData.fecha === todayStr) {
-                const [hh, mm] = bookingData.hora_inicio.split(':').map(Number);
-                const startMins = hh * 60 + mm;
+            // Solo si la fecha es estrictamente HOY, validar que la hora no haya pasado
+            if (selectedDateStr === todayStr) {
+                const [hh, mm] = (bookingData.hora_inicio || '').split(':').map(Number);
+                const startMins = (hh || 0) * 60 + (mm || 0);
                 if (startMins < currentMins) {
                     return res.status(400).json({ success: false, message: 'No se pueden agendar citas en horarios que ya han pasado hoy.' });
                 }
@@ -93,7 +106,7 @@ class AppointmentController {
                       AND estado NOT IN ('cancelada', 'cancelado')
                       AND hora_inicio::time < $3::time
                       AND hora_fin::time > $4::time
-                `, [parseInt(bookingData.id_barbero), bookingData.fecha, bookingData.hora_fin, bookingData.hora_inicio]);
+                `, [parseInt(bookingData.id_barbero), selectedDateStr, bookingData.hora_fin, bookingData.hora_inicio]);
                 
                 if (conflictRes.rows[0].count > 0) {
                     return res.status(400).json({ success: false, message: 'El barbero seleccionado no está disponible en este horario.' });
@@ -113,7 +126,7 @@ class AppointmentController {
                                  AND hora_inicio::time < $2::time
                                  AND hora_fin::time > $3::time
                            ))::int as free_active
-                `, [bookingData.fecha, bookingData.hora_fin, bookingData.hora_inicio]);
+                `, [selectedDateStr, bookingData.hora_fin, bookingData.hora_inicio]);
                 
                 const { total_active, free_active } = checkFreeRes.rows[0];
                 if (total_active === 0) {
@@ -121,6 +134,18 @@ class AppointmentController {
                 }
                 if (free_active === 0) {
                     return res.status(400).json({ success: false, message: 'No hay barberos disponibles en el horario seleccionado.' });
+                }
+            }
+
+            // Normalizar teléfono con prefijo +57 evitando duplicados
+            let normalizedTelefono = (clienteData.telefono || '').toString().trim().replace(/\s+/g, '');
+            if (normalizedTelefono) {
+                if (!normalizedTelefono.startsWith('+57')) {
+                    if (normalizedTelefono.startsWith('57') && normalizedTelefono.length > 10) {
+                        normalizedTelefono = `+${normalizedTelefono}`;
+                    } else {
+                        normalizedTelefono = `+57${normalizedTelefono}`;
+                    }
                 }
             }
 
@@ -137,10 +162,12 @@ class AppointmentController {
                 id_cliente = await ClientModel.create({
                     nombre_invitado: clienteData.nombre,
                     email_invitado: clienteData.email,
-                    telefono_invitado: clienteData.telefono,
+                    telefono_invitado: normalizedTelefono || clienteData.telefono,
                     tipo_documento: clienteData.tipo_documento,
                     documento: clienteData.documento
                 });
+            } else if (normalizedTelefono) {
+                await db.query("UPDATE Clientes SET telefono_invitado = COALESCE(NULLIF($1, ''), telefono_invitado) WHERE id_cliente = $2", [normalizedTelefono, id_cliente]).catch(() => {});
             }
 
             // 3. Crear la Cita
