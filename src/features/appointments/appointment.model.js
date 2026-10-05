@@ -123,8 +123,16 @@ class AppointmentModel {
                 if (uRes.rows.length > 0) {
                     barbId = uRes.rows[0].id_barbero;
                 } else {
-                    const firstBarb = await db.query('SELECT id_barbero FROM Barberos LIMIT 1');
-                    if (firstBarb.rows.length > 0) barbId = firstBarb.rows[0].id_barbero;
+                    const firstBarb = await db.query("SELECT id_barbero FROM Barberos WHERE estado = 'Activo' LIMIT 1");
+                    if (firstBarb.rows.length > 0) {
+                        barbId = firstBarb.rows[0].id_barbero;
+                    } else {
+                        const anyBarberUser = await db.query("SELECT id_usuario FROM Usuarios WHERE id_rol = 2 LIMIT 1");
+                        if (anyBarberUser.rows.length > 0) {
+                            const insBarb = await db.query("INSERT INTO Barberos (id_usuario, estado, tipo_contrato, porcentaje_ganancia) VALUES ($1, 'Activo', 'porcentaje', 50.00) RETURNING id_barbero", [anyBarberUser.rows[0].id_usuario]);
+                            barbId = insBarb.rows[0].id_barbero;
+                        }
+                    }
                 }
             }
         } catch (err) {

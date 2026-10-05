@@ -170,24 +170,66 @@ class AppointmentController {
                 await db.query("UPDATE Clientes SET telefono_invitado = COALESCE(NULLIF($1, ''), telefono_invitado) WHERE id_cliente = $2", [normalizedTelefono, id_cliente]).catch(() => {});
             }
 
-            // 3. Crear la Cita
-            const id_barbero_val = (bookingData.id_barbero && parseInt(bookingData.id_barbero) !== 0) 
+            // 3. Resolver barbero válido para la Cita
+            let id_barbero_val = (bookingData.id_barbero && parseInt(bookingData.id_barbero) !== 0) 
                 ? parseInt(bookingData.id_barbero) 
                 : null;
+
+            // Si es un id_usuario en lugar de id_barbero, mapearlo a id_barbero
+            if (id_barbero_val) {
+                const bCheck = await db.query("SELECT id_barbero FROM Barberos WHERE id_barbero = $1", [id_barbero_val]);
+                if (bCheck.rows.length === 0) {
+                    const uCheck = await db.query("SELECT id_barbero FROM Barberos WHERE id_usuario = $1", [id_barbero_val]);
+                    if (uCheck.rows.length > 0) {
+                        id_barbero_val = uCheck.rows[0].id_barbero;
+                    }
+                }
+            }
+
+            // Si se seleccionó "Cualquier barbero" (0 o null), asignar automáticamente un barbero libre
+            if (!id_barbero_val) {
+                const freeBarberRes = await db.query(`
+                    SELECT b.id_barbero 
+                    FROM Barberos b
+                    WHERE b.estado = 'Activo'
+                      AND b.id_barbero NOT IN (
+                          SELECT id_barbero 
+                          FROM Citas 
+                          WHERE fecha = $1 
+                            AND estado NOT IN ('cancelada', 'cancelado')
+                            AND id_barbero IS NOT NULL
+                            AND hora_inicio::time < $2::time
+                            AND hora_fin::time > $3::time
+                      )
+                    ORDER BY b.id_barbero ASC
+                    LIMIT 1
+                `, [selectedDateStr, bookingData.hora_fin, bookingData.hora_inicio]);
+
+                if (freeBarberRes.rows.length > 0) {
+                    id_barbero_val = freeBarberRes.rows[0].id_barbero;
+                } else {
+                    const anyB = await db.query("SELECT id_barbero FROM Barberos WHERE estado = 'Activo' LIMIT 1");
+                    if (anyB.rows.length > 0) id_barbero_val = anyB.rows[0].id_barbero;
+                }
+            }
             
             const firstServiceId = (bookingData.id_servicios && bookingData.id_servicios.length > 0)
-                ? parseInt(bookingData.id_servicios[0])
-                : null;
+                ? parseInt(bookingData.id_servicios[0]) 
+                : (bookingData.id_servicio ? parseInt(bookingData.id_servicio) : null);
+
+            const servicesToSave = (bookingData.id_servicios && bookingData.id_servicios.length > 0)
+                ? bookingData.id_servicios 
+                : (firstServiceId ? [firstServiceId] : []);
 
             const newCitaId = await AppointmentModel.create({
                 id_cliente,
                 id_barbero: id_barbero_val,
                 id_servicio: firstServiceId,
-                fecha: bookingData.fecha,
+                fecha: selectedDateStr,
                 hora_inicio: bookingData.hora_inicio,
                 hora_fin: bookingData.hora_fin,
                 detalles_json: {
-                    servicios: bookingData.id_servicios.map(sId => ({ id_servicio: parseInt(sId), cantidad: 1 })),
+                    servicios: servicesToSave.map(sId => ({ id_servicio: parseInt(sId), cantidad: 1 })),
                     productos: []
                 }
             });
