@@ -35,7 +35,7 @@ class MailService {
         const pass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
 
         if (!user || !pass) {
-            console.warn('⚠️ Advertencia: EMAIL_USER o EMAIL_PASS no están configurados en el backend.');
+            console.warn('⚠️ Advertencia: EMAIL_USER o EMAIL_PASS no están configurados en las variables de entorno del backend.');
             return false;
         }
         
@@ -75,156 +75,6 @@ class MailService {
             return true;
         } catch (error) {
             console.error(`❌ Error al enviar correo de confirmación a ${email}:`, error.message);
-            return false;
-        }
-    }
-
-    /**
-     * Envía un correo de recordatorio de cita (24 horas antes).
-     */
-    static async sendReminderEmail({ email, clientName, serviceName, barberName, fecha, hora }) {
-        if (!email) return false;
-
-        const user = (process.env.EMAIL_USER || '').trim();
-        const pass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
-        if (!user || !pass) return false;
-
-        const mailOptions = {
-            from: `"CzBarber" <${user}>`,
-            to: email,
-            subject: '⏰ Recordatorio de tu Cita de Mañana - CzBarber',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #d0d8e4; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <div style="background-color: #FF4B2B; color: white; padding: 24px; text-align: center;">
-                        <h1 style="margin: 0; font-size: 24px; letter-spacing: 0.5px;">¡Recordatorio de tu Cita! ⏰</h1>
-                    </div>
-                    <div style="padding: 24px; background-color: #ffffff; color: #333333; line-height: 1.6;">
-                        <p style="font-size: 16px; margin-top: 0;">Hola <strong>${clientName}</strong>,</p>
-                        <p>Te recordamos que tienes una cita programada para <strong>mañana</strong> en <strong>CzBarber</strong>:</p>
-                        
-                        <div style="background-color: #f9fafb; border-left: 4px solid #FF4B2B; padding: 16px; margin: 20px 0; border-radius: 4px;">
-                            <p style="margin: 4px 0;"><strong>Servicio(s):</strong> ${serviceName}</p>
-                            <p style="margin: 4px 0;"><strong>Barbero:</strong> ${barberName || 'Cualquier barbero disponible'}</p>
-                            <p style="margin: 4px 0;"><strong>Fecha:</strong> ${fecha}</p>
-                            <p style="margin: 4px 0;"><strong>Hora:</strong> ${hora}</p>
-                        </div>
-                        
-                        <p style="font-size: 14px; color: #555555;">¡Te esperamos! Si necesitas realizar cambios, contáctanos lo antes posible.</p>
-                    </div>
-                    <div style="background-color: #f9fafb; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #777777;">
-                        &copy; 2026 CzBarber. Todos los derechos reservados.
-                    </div>
-                </div>
-            `
-        };
-
-        try {
-            const transporter = getTransporter();
-            await transporter.sendMail(mailOptions);
-            console.log(`📧 Correo de recordatorio enviado exitosamente a ${email}`);
-            return true;
-        } catch (error) {
-            console.error(`❌ Error al enviar correo de recordatorio a ${email}:`, error.message);
-            return false;
-        }
-    }
-
-    /**
-     * Envía un correo de confirmación de cita al barbero asignado.
-     */
-    static async sendBarberConfirmationEmail({ email, clientName, serviceName, barberName, fecha, hora }) {
-        if (!email) return false;
-
-        const user = (process.env.EMAIL_USER || '').trim();
-        const pass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
-        if (!user || !pass) return false;
-
-        const mailOptions = {
-            from: `"CzBarber" <${user}>`,
-            to: email,
-            subject: '💈 Nueva Cita Asignada - CzBarber',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #d0d8e4; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <div style="background-color: #0057FF; color: white; padding: 24px; text-align: center;">
-                        <h1 style="margin: 0; font-size: 24px; letter-spacing: 0.5px;">¡Nueva Cita Asignada! 💈</h1>
-                    </div>
-                    <div style="padding: 24px; background-color: #ffffff; color: #333333; line-height: 1.6;">
-                        <p style="font-size: 16px; margin-top: 0;">Hola <strong>${barberName}</strong>,</p>
-                        <p>Se te ha asignado una nueva cita en <strong>CzBarber</strong>. A continuación los detalles:</p>
-                        
-                        <div style="background-color: #f3f4f6; border-left: 4px solid #0057FF; padding: 16px; margin: 20px 0; border-radius: 4px;">
-                            <p style="margin: 4px 0;"><strong>Cliente:</strong> ${clientName}</p>
-                            <p style="margin: 4px 0;"><strong>Servicio(s):</strong> ${serviceName}</p>
-                            <p style="margin: 4px 0;"><strong>Fecha:</strong> ${fecha}</p>
-                            <p style="margin: 4px 0;"><strong>Hora:</strong> ${hora}</p>
-                        </div>
-                        
-                        <p style="font-size: 14px; color: #555555;">Por favor asegúrate de estar preparado para este servicio a la hora indicada.</p>
-                    </div>
-                    <div style="background-color: #f9fafb; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #777777;">
-                        &copy; 2026 CzBarber. Todos los derechos reservados.
-                    </div>
-                </div>
-            `
-        };
-
-        try {
-            const transporter = getTransporter();
-            await transporter.sendMail(mailOptions);
-            console.log(`📧 Correo de confirmación enviado exitosamente al barbero ${email}`);
-            return true;
-        } catch (error) {
-            console.error(`❌ Error al enviar correo de confirmación al barbero ${email}:`, error.message);
-            return false;
-        }
-    }
-
-    /**
-     * Envía un correo de recordatorio de cita al barbero asignado.
-     */
-    static async sendBarberReminderEmail({ email, clientName, serviceName, barberName, fecha, hora }) {
-        if (!email) return false;
-
-        const user = (process.env.EMAIL_USER || '').trim();
-        const pass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
-        if (!user || !pass) return false;
-
-        const mailOptions = {
-            from: `"CzBarber" <${user}>`,
-            to: email,
-            subject: '⏰ Recordatorio de Cita Próxima - CzBarber',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #d0d8e4; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <div style="background-color: #FF4B2B; color: white; padding: 24px; text-align: center;">
-                        <h1 style="margin: 0; font-size: 24px; letter-spacing: 0.5px;">¡Recordatorio de Cita Próxima! ⏰</h1>
-                    </div>
-                    <div style="padding: 24px; background-color: #ffffff; color: #333333; line-height: 1.6;">
-                        <p style="font-size: 16px; margin-top: 0;">Hola <strong>${barberName}</strong>,</p>
-                        <p>Te recordamos que tienes una cita programada en <strong>30 minutos</strong> en <strong>CzBarber</strong>:</p>
-                        
-                        <div style="background-color: #f9fafb; border-left: 4px solid #FF4B2B; padding: 16px; margin: 20px 0; border-radius: 4px;">
-                            <p style="margin: 4px 0;"><strong>Cliente:</strong> ${clientName}</p>
-                            <p style="margin: 4px 0;"><strong>Servicio(s):</strong> ${serviceName}</p>
-                            <p style="margin: 4px 0;"><strong>Fecha:</strong> ${fecha}</p>
-                            <p style="margin: 4px 0;"><strong>Hora:</strong> ${hora}</p>
-                        </div>
-                        
-                        <p style="font-size: 14px; color: #555555;">Por favor mantente listo para recibir al cliente.</p>
-                    </div>
-                    <div style="background-color: #f9fafb; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #777777;">
-                        &copy; 2026 CzBarber. Todos los derechos reservados.
-                    </div>
-                </div>
-            `
-        };
-
-        try {
-            const transporter = getTransporter();
-            await transporter.sendMail(mailOptions);
-            console.log(`📧 Correo de recordatorio enviado exitosamente al barbero ${email}`);
-            return true;
-        } catch (error) {
-            console.error(`❌ Error al enviar correo de recordatorio al barbero ${email}:`, error.message);
             return false;
         }
     }
@@ -273,7 +123,7 @@ class MailService {
                 if (row.hora_inicio instanceof Date) {
                     horaStr = row.hora_inicio.toTimeString().substring(0, 5);
                 } else {
-                    const match = row.hora_inicio.toString().match(/\d{2}:\d{2}/);
+                    const match = row.hora_inicio.toString().match(/\\d{2}:\\d{2}/);
                     horaStr = match ? match[0] : row.hora_inicio.toString().substring(0, 5);
                 }
             }
@@ -321,22 +171,26 @@ class MailService {
                 console.warn(`⚠️ Cita #${id_cita}: No se encontró correo para el cliente (${clientName}).`);
             }
 
-            // 2. Enviar correo al barbero asignado (si tiene)
+            // 2. Enviar correo al barbero asignado si tiene correo
             if (row.barbero_email) {
-                this.sendBarberConfirmationEmail({
-                    email: row.barbero_email,
-                    clientName,
-                    serviceName: serviceNames,
-                    barberName,
-                    fecha: formattedDate,
-                    hora: horaStr
-                }).catch(e => console.error("Error enviando correo al barbero:", e.message));
-            }
-
-            // 3. Enviar WhatsApp al barbero asignado inmediatamente
-            if (row.barbero_telefono) {
-                const waMessage = `💈 *Nueva Cita Agendada - CzBarber*\n\nHola *${barberName}*,\nSe ha agendado una nueva cita en tu agenda:\n\n• *Cliente:* ${clientName}\n• *Servicio(s):* ${serviceNames}\n• *Fecha:* ${formattedDate}\n• *Hora:* ${horaStr}\n\nPor favor, ingresa al sistema para revisarla y confirmarla para el horario solicitado.`;
-                WhatsAppService.sendMessage(row.barbero_telefono, waMessage).catch(e => console.error("Error al enviar WhatsApp inmediato al barbero:", e.message));
+                const mailOptionsBarber = {
+                    from: `"CzBarber" <${(process.env.EMAIL_USER || '').trim()}>`,
+                    to: row.barbero_email,
+                    subject: '💈 Nueva Cita Asignada - CzBarber',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #d0d8e4; border-radius: 12px; overflow: hidden;">
+                            <div style="background-color: #0057FF; color: white; padding: 20px; text-align: center;">
+                                <h1 style="margin: 0; font-size: 20px;">¡Nueva Cita Asignada! 💈</h1>
+                            </div>
+                            <div style="padding: 20px; background-color: #ffffff;">
+                                <p>Hola <strong>${barberName}</strong>,</p>
+                                <p>Se ha reservado una nueva cita en tu horario:</p>
+                                <p>• <strong>Cliente:</strong> ${clientName}<br/>• <strong>Servicio:</strong> ${serviceNames}<br/>• <strong>Fecha:</strong> ${formattedDate}<br/>• <strong>Hora:</strong> ${horaStr}</p>
+                            </div>
+                        </div>
+                    `
+                };
+                getTransporter().sendMail(mailOptionsBarber).catch(e => console.error("Error enviando correo al barbero:", e.message));
             }
 
             return Boolean(clientEmailSent);
