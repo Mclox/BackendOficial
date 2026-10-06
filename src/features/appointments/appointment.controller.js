@@ -96,8 +96,35 @@ class AppointmentController {
                 }
             }
 
-            // 1. Validar conflicto de horarios
-            if (bookingData.id_barbero && parseInt(bookingData.id_barbero) !== 0) {
+            // 1. Resolver barbero si se proporcionó (admite tanto ID de barbero como ID de usuario barbero/admin)
+            let id_barbero_val = (bookingData.id_barbero && parseInt(bookingData.id_barbero) !== 0) 
+                ? parseInt(bookingData.id_barbero) 
+                : null;
+
+            if (id_barbero_val) {
+                const bCheck = await db.query("SELECT id_barbero FROM Barberos WHERE id_barbero = $1", [id_barbero_val]);
+                if (bCheck.rows.length === 0) {
+                    const uCheck = await db.query("SELECT id_barbero FROM Barberos WHERE id_usuario = $1", [id_barbero_val]);
+                    if (uCheck.rows.length > 0) {
+                        id_barbero_val = uCheck.rows[0].id_barbero;
+                    } else {
+                        const uAdminCheck = await db.query(
+                            "SELECT u.id_usuario FROM Usuarios u JOIN Roles r ON u.id_rol = r.id_rol WHERE u.id_usuario = $1 AND (LOWER(r.nombre) IN ('barbero', 'administrador') OR u.id_rol IN (1, 2))",
+                            [id_barbero_val]
+                        );
+                        if (uAdminCheck.rows.length > 0) {
+                            const insBarb = await db.query(
+                                "INSERT INTO Barberos (id_usuario, estado, tipo_contrato, porcentaje_ganancia) VALUES ($1, 'Activo', 'porcentaje', 50.00) RETURNING id_barbero",
+                                [uAdminCheck.rows[0].id_usuario]
+                            );
+                            id_barbero_val = insBarb.rows[0].id_barbero;
+                        }
+                    }
+                }
+            }
+
+            // Validar conflicto de horarios
+            if (id_barbero_val) {
                 const conflictRes = await db.query(`
                     SELECT COUNT(*)::int as count 
                     FROM Citas 
@@ -106,7 +133,7 @@ class AppointmentController {
                       AND estado NOT IN ('cancelada', 'cancelado')
                       AND hora_inicio::time < $3::time
                       AND hora_fin::time > $4::time
-                `, [parseInt(bookingData.id_barbero), selectedDateStr, bookingData.hora_fin, bookingData.hora_inicio]);
+                `, [id_barbero_val, selectedDateStr, bookingData.hora_fin, bookingData.hora_inicio]);
                 
                 if (conflictRes.rows[0].count > 0) {
                     return res.status(400).json({ success: false, message: 'El barbero seleccionado no está disponible en este horario.' });
@@ -170,23 +197,7 @@ class AppointmentController {
                 await db.query("UPDATE Clientes SET telefono_invitado = COALESCE(NULLIF($1, ''), telefono_invitado) WHERE id_cliente = $2", [normalizedTelefono, id_cliente]).catch(() => {});
             }
 
-            // 3. Resolver barbero válido para la Cita
-            let id_barbero_val = (bookingData.id_barbero && parseInt(bookingData.id_barbero) !== 0) 
-                ? parseInt(bookingData.id_barbero) 
-                : null;
-
-            // Si es un id_usuario en lugar de id_barbero, mapearlo a id_barbero
-            if (id_barbero_val) {
-                const bCheck = await db.query("SELECT id_barbero FROM Barberos WHERE id_barbero = $1", [id_barbero_val]);
-                if (bCheck.rows.length === 0) {
-                    const uCheck = await db.query("SELECT id_barbero FROM Barberos WHERE id_usuario = $1", [id_barbero_val]);
-                    if (uCheck.rows.length > 0) {
-                        id_barbero_val = uCheck.rows[0].id_barbero;
-                    }
-                }
-            }
-
-            // Si se seleccionó "Cualquier barbero" (0 o null), asignar automáticamente un barbero libre
+            // 3. Asignar barbero libre si se seleccionó "Cualquier barbero" (0 o null)
             if (!id_barbero_val) {
                 const freeBarberRes = await db.query(`
                     SELECT b.id_barbero 
@@ -269,6 +280,10 @@ class AppointmentController {
                 } else {
                     data = [];
                 }
+            } else if (req.query && (req.query.mine === 'true' || req.query.mis_citas === 'true')) {
+                const barberoRes = await db.query('SELECT id_barbero FROM Barberos WHERE id_usuario = $1', [req.user?.id || req.user?.id_usuario]);
+                const adminBarbId = barberoRes.rows.length > 0 ? barberoRes.rows[0].id_barbero : null;
+                data = data.filter(c => (adminBarbId && c.id_barbero === adminBarbId) || c.barbero_id_usuario === (req.user?.id || req.user?.id_usuario));
             }
             res.json({ success: true, data });
         } catch (error) { res.status(500).json({ error: error.message }); }

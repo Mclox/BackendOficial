@@ -3,13 +3,21 @@ const db = require('../../config/db');
 class EmployeeModel {
     static async getAll() {
         const result = await db.query(`
-            SELECT b.id_barbero, b.id_barbero as id_empleado, b.id_usuario, b.estado, b.tipo_contrato as tipo_esquema, 
-                   b.porcentaje_ganancia as porcentaje_comision, b.hora_inicio, b.hora_fin,
-                   u.nombre, u.email, u.telefono, u.direccion, 'Barbero' as cargo, '' as apellido,
+            SELECT COALESCE(b.id_barbero, u.id_usuario) as id_barbero, 
+                   COALESCE(b.id_barbero, u.id_usuario) as id_empleado, 
+                   u.id_usuario, 
+                   COALESCE(b.estado, u.estado) as estado, 
+                   COALESCE(b.tipo_contrato, 'porcentaje') as tipo_esquema, 
+                   b.porcentaje_ganancia as porcentaje_comision, 
+                   b.hora_inicio, b.hora_fin,
+                   u.nombre, u.email, u.telefono, u.direccion, 
+                   r.nombre as cargo, '' as apellido,
                    u.tipo_documento, u.documento
-            FROM Barberos b
-            JOIN Usuarios u ON b.id_usuario = u.id_usuario
-            ORDER BY b.id_barbero ASC
+            FROM Usuarios u
+            JOIN Roles r ON u.id_rol = r.id_rol
+            LEFT JOIN Barberos b ON u.id_usuario = b.id_usuario
+            WHERE LOWER(r.nombre) IN ('barbero', 'administrador') OR u.id_rol IN (1, 2)
+            ORDER BY u.id_usuario ASC
         `);
         return result.rows;
     }
