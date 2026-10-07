@@ -53,7 +53,16 @@ class AppointmentController {
     }
 
     static async createPublicBooking(req, res) {
-        const clienteData = req.body.clienteData || req.body.cliente || { nombre: 'Cliente', email: 'cliente@barber.com' };
+        const clienteData = req.body.clienteData || req.body.cliente || {
+            nombre: req.body.nombre || req.body.nombre_invitado || 'Cliente',
+            email: req.body.email || req.body.email_invitado || req.body.correo || '',
+            telefono: req.body.telefono || req.body.telefono_invitado || '',
+            tipo_documento: req.body.tipo_documento || 'CC',
+            documento: req.body.documento || ''
+        };
+        if (!clienteData.email && (clienteData.correo || req.body.email || req.body.correo)) {
+            clienteData.email = clienteData.correo || req.body.email || req.body.correo;
+        }
         const bookingData = req.body.bookingData || req.body.booking || req.body;
         try {
             if (!clienteData || !bookingData || !bookingData.fecha || !bookingData.hora_inicio) {
@@ -193,8 +202,14 @@ class AppointmentController {
                     tipo_documento: clienteData.tipo_documento,
                     documento: clienteData.documento
                 });
-            } else if (normalizedTelefono) {
-                await db.query("UPDATE Clientes SET telefono_invitado = COALESCE(NULLIF($1, ''), telefono_invitado) WHERE id_cliente = $2", [normalizedTelefono, id_cliente]).catch(() => {});
+            } else {
+                await db.query(`
+                    UPDATE Clientes 
+                    SET telefono_invitado = COALESCE(NULLIF($1, ''), telefono_invitado),
+                        email_invitado = COALESCE(NULLIF($2, ''), email_invitado),
+                        nombre_invitado = COALESCE(NULLIF($3, ''), nombre_invitado)
+                    WHERE id_cliente = $4
+                `, [normalizedTelefono || null, clienteData.email || null, clienteData.nombre || null, id_cliente]).catch(() => {});
             }
 
             // 3. Asignar barbero libre si se seleccionó "Cualquier barbero" (0 o null)
@@ -245,8 +260,14 @@ class AppointmentController {
                 }
             });
 
-            // Enviar notificaciones por correo electrónico de forma asíncrona a cliente y barbero
-            MailService.sendNotificationOnCreation(newCitaId).catch(e => console.error("Error al enviar notificaciones de confirmación:", e));
+            // Enviar notificaciones por correo electrónico de forma segura esperando confirmación del servidor SMTP
+            let emailStatus = { success: false, error: null };
+            try {
+                emailStatus = await MailService.sendNotificationOnCreation(newCitaId);
+            } catch (mailErr) {
+                console.error("❌ Error al despachar correo de confirmación:", mailErr.message);
+                emailStatus = { success: false, error: mailErr.message };
+            }
 
             await NotificationService.createNotification({
                 modulo: 'Citas',
@@ -255,7 +276,14 @@ class AppointmentController {
                 req
             });
 
-            res.status(201).json({ success: true, id_cita: newCitaId });
+            res.status(201).json({ 
+                success: true, 
+                id_cita: newCitaId,
+                email_enviado: Boolean(emailStatus?.success),
+                email_mensaje: emailStatus?.success 
+                    ? 'Correo de confirmación enviado exitosamente' 
+                    : (emailStatus?.error || 'No se pudo confirmar el envío del correo')
+            });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Error procesando el agendamiento público', error: error.message });
         }
@@ -311,7 +339,13 @@ class AppointmentController {
 
             const id = await AppointmentModel.create(body);
             
-            MailService.sendNotificationOnCreation(id).catch(e => console.error("Error al enviar notificaciones de confirmación:", e));
+            let emailStatus = { success: false, error: null };
+            try {
+                emailStatus = await MailService.sendNotificationOnCreation(id);
+            } catch (mailErr) {
+                console.error("❌ Error al despachar correo de confirmación:", mailErr.message);
+                emailStatus = { success: false, error: mailErr.message };
+            }
 
             await NotificationService.createNotification({
                 modulo: 'Citas',
@@ -320,7 +354,14 @@ class AppointmentController {
                 req
             }).catch(e => console.error("Error al crear notificación de cita:", e));
 
-            res.status(201).json({ success: true, id_cita: id });
+            res.status(201).json({ 
+                success: true, 
+                id_cita: id,
+                email_enviado: Boolean(emailStatus?.success),
+                email_mensaje: emailStatus?.success 
+                    ? 'Correo de confirmación enviado exitosamente' 
+                    : (emailStatus?.error || 'No se pudo confirmar el envío del correo')
+            });
         } catch (error) { 
             console.error("Error en createAppointment:", error);
             res.status(500).json({ success: false, error: error.message }); 
