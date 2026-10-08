@@ -57,13 +57,55 @@ class MailService {
         const senderEmail = (process.env.EMAIL_USER || 'miguelangelcardonalopez0@gmail.com').trim();
         const fromHeader = getFromAddress();
 
-        // --- OPCIÓN 1: Brevo (Sendinblue) HTTP API (Puerto 443 HTTPS - No bloqueado por Render) ---
-        if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim()) {
+        let lastError = null;
+
+        // Auto-detección inteligente de tipo de API key (Resend empieza con 're_', Brevo con 'xkeysib-')
+        const rawBrevo = (process.env.BREVO_API_KEY || '').trim();
+        const rawResend = (process.env.RESEND_API_KEY || '').trim();
+        const rawGeneric = (process.env.EMAIL_API_KEY || '').trim();
+
+        const resendKey = rawResend || (rawBrevo.startsWith('re_') ? rawBrevo : null) || (rawGeneric.startsWith('re_') ? rawGeneric : null);
+        const brevoKey = (rawBrevo && !rawBrevo.startsWith('re_')) ? rawBrevo : (rawResend.startsWith('xkeysib-') ? rawResend : null) || (rawGeneric.startsWith('xkeysib-') ? rawGeneric : null);
+
+        // --- OPCIÓN 1: Resend HTTP API (Puerto 443 HTTPS - No bloqueado por Render) ---
+        if (resendKey) {
+            try {
+                const fromEmail = process.env.RESEND_FROM || 'CzBarber <onboarding@resend.dev>';
+                const res = await fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${resendKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        from: fromEmail,
+                        to: [destEmail],
+                        subject: subject,
+                        html: html
+                    })
+                });
+
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    console.log(`📧 [Resend HTTPS] Correo enviado exitosamente a ${destEmail}. ID: ${data.id}`);
+                    return { success: true, messageId: data.id, accepted: [destEmail], rejected: [], error: null };
+                } else {
+                    lastError = `Resend: ${data.message || JSON.stringify(data)}`;
+                    console.error(`❌ [Resend HTTPS] Error al enviar a ${destEmail}:`, lastError);
+                }
+            } catch (err) {
+                lastError = `Resend: ${err.message}`;
+                console.error(`❌ [Resend HTTPS] Excepción:`, err.message);
+            }
+        }
+
+        // --- OPCIÓN 2: Brevo (Sendinblue) HTTP API (Puerto 443 HTTPS - No bloqueado por Render) ---
+        if (brevoKey) {
             try {
                 const res = await fetch('https://api.brevo.com/v3/smtp/email', {
                     method: 'POST',
                     headers: {
-                        'api-key': process.env.BREVO_API_KEY.trim(),
+                        'api-key': brevoKey,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
@@ -80,44 +122,18 @@ class MailService {
                     console.log(`📧 [Brevo HTTPS] Correo enviado exitosamente a ${destEmail}. MessageId: ${data.messageId}`);
                     return { success: true, messageId: data.messageId, accepted: [destEmail], rejected: [], error: null };
                 } else {
-                    console.error(`❌ [Brevo HTTPS] Error al enviar a ${destEmail}:`, data.message || res.statusText);
-                    return { success: false, error: data.message || `Error API Brevo: ${res.statusText}`, accepted: [], rejected: [destEmail] };
+                    lastError = `Brevo: ${data.message || res.statusText}`;
+                    console.error(`❌ [Brevo HTTPS] Error al enviar a ${destEmail}:`, lastError);
                 }
             } catch (err) {
+                lastError = `Brevo: ${err.message}`;
                 console.error(`❌ [Brevo HTTPS] Excepción:`, err.message);
-                return { success: false, error: `Excepción API Brevo: ${err.message}`, accepted: [], rejected: [destEmail] };
             }
         }
 
-        // --- OPCIÓN 2: Resend HTTP API (Puerto 443 HTTPS - No bloqueado por Render) ---
-        if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim()) {
-            try {
-                const res = await fetch('https://api.resend.com/emails', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        from: process.env.EMAIL_FROM || 'CzBarber <onboarding@resend.dev>',
-                        to: [destEmail],
-                        subject: subject,
-                        html: html
-                    })
-                });
-
-                const data = await res.json().catch(() => ({}));
-                if (res.ok) {
-                    console.log(`📧 [Resend HTTPS] Correo enviado exitosamente a ${destEmail}. ID: ${data.id}`);
-                    return { success: true, messageId: data.id, accepted: [destEmail], rejected: [], error: null };
-                } else {
-                    console.error(`❌ [Resend HTTPS] Error al enviar a ${destEmail}:`, data.message);
-                    return { success: false, error: data.message || 'Error API Resend', accepted: [], rejected: [destEmail] };
-                }
-            } catch (err) {
-                console.error(`❌ [Resend HTTPS] Excepción:`, err.message);
-                return { success: false, error: `Excepción API Resend: ${err.message}`, accepted: [], rejected: [destEmail] };
-            }
+        // Si se configuró un proveedor HTTP pero falló y no hay SMTP configurado
+        if (lastError && (!process.env.EMAIL_PASS || !process.env.EMAIL_USER)) {
+            return { success: false, error: lastError, accepted: [], rejected: [destEmail] };
         }
 
         // --- OPCIÓN 3: SendGrid HTTP API (Puerto 443 HTTPS) ---
@@ -202,11 +218,18 @@ class MailService {
      * Verifica la conectividad con el servicio de correo.
      */
     static async verifyConnection() {
-        if (process.env.BREVO_API_KEY) {
-            return { success: true, message: 'Proveedor HTTP Brevo configurado para envíos por puerto 443.' };
-        }
-        if (process.env.RESEND_API_KEY) {
+        const rawBrevo = (process.env.BREVO_API_KEY || '').trim();
+        const rawResend = (process.env.RESEND_API_KEY || '').trim();
+        const rawGeneric = (process.env.EMAIL_API_KEY || '').trim();
+
+        const resendKey = rawResend || (rawBrevo.startsWith('re_') ? rawBrevo : null) || (rawGeneric.startsWith('re_') ? rawGeneric : null);
+        const brevoKey = (rawBrevo && !rawBrevo.startsWith('re_')) ? rawBrevo : (rawResend.startsWith('xkeysib-') ? rawResend : null) || (rawGeneric.startsWith('xkeysib-') ? rawGeneric : null);
+
+        if (resendKey) {
             return { success: true, message: 'Proveedor HTTP Resend configurado para envíos por puerto 443.' };
+        }
+        if (brevoKey) {
+            return { success: true, message: 'Proveedor HTTP Brevo configurado para envíos por puerto 443.' };
         }
         if (process.env.SENDGRID_API_KEY) {
             return { success: true, message: 'Proveedor HTTP SendGrid configurado para envíos por puerto 443.' };
