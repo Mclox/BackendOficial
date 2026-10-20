@@ -8,35 +8,26 @@ class AppointmentController {
     static async getPublicBusySlots(req, res) {
         try {
             const result = await db.query(`
-                SELECT fecha, hora_inicio, hora_fin, id_barbero
+                SELECT to_char(fecha, 'YYYY-MM-DD') as fecha,
+                       hora_inicio,
+                       hora_fin,
+                       id_barbero
                 FROM Citas
                 WHERE estado NOT IN ('cancelada', 'cancelado')
             `);
             const data = result.rows.map(row => {
-                const dateStr = row.fecha ? new Date(row.fecha).toISOString().split('T')[0] : '';
+                const dateStr = row.fecha || '';
                 
                 let timeStr = '';
                 if (row.hora_inicio) {
-                    if (row.hora_inicio instanceof Date) {
-                        timeStr = row.hora_inicio.toTimeString().substring(0, 5);
-                    } else if (typeof row.hora_inicio === 'object' && row.hora_inicio.toISOString) {
-                        timeStr = new Date(row.hora_inicio).toTimeString().substring(0, 5);
-                    } else {
-                        const match = row.hora_inicio.toString().match(/\d{2}:\d{2}/);
-                        timeStr = match ? match[0] : row.hora_inicio.toString().substring(0, 5);
-                    }
+                    const match = row.hora_inicio.toString().match(/\d{2}:\d{2}/);
+                    timeStr = match ? match[0] : row.hora_inicio.toString().substring(0, 5);
                 }
 
                 let endTimeStr = '';
                 if (row.hora_fin) {
-                    if (row.hora_fin instanceof Date) {
-                        endTimeStr = row.hora_fin.toTimeString().substring(0, 5);
-                    } else if (typeof row.hora_fin === 'object' && row.hora_fin.toISOString) {
-                        endTimeStr = new Date(row.hora_fin).toTimeString().substring(0, 5);
-                    } else {
-                        const match = row.hora_fin.toString().match(/\d{2}:\d{2}/);
-                        endTimeStr = match ? match[0] : row.hora_fin.toString().substring(0, 5);
-                    }
+                    const match = row.hora_fin.toString().match(/\d{2}:\d{2}/);
+                    endTimeStr = match ? match[0] : row.hora_fin.toString().substring(0, 5);
                 }
 
                 return {

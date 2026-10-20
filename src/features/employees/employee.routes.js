@@ -6,6 +6,10 @@ const { verifyToken, checkPermission } = require('../../middlewares/auth.middlew
 // Endpoint público para la landing page (sin token)
 router.get('/public', EmployeeController.getEmployees);
 
+// Rutas de horarios y disponibilidad
+router.get('/:id/schedules', EmployeeController.getSchedule);
+router.put('/:id/schedules', EmployeeController.updateSchedule);
+
 router.get('/', verifyToken, checkPermission('Empleados', 'leer'), EmployeeController.getEmployees);
 router.post('/', verifyToken, checkPermission('Empleados', 'crear'), EmployeeController.createEmployee);
 router.put('/:id', verifyToken, checkPermission('Empleados', 'actualizar'), EmployeeController.updateEmployee);
