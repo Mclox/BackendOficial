@@ -275,6 +275,7 @@ class EmployeeModel {
         const schedJson = typeof schedules === 'object' ? JSON.stringify(schedules) : '[]';
         const blocksJson = typeof timeBlocks === 'object' ? JSON.stringify(timeBlocks) : '[]';
 
+        const numId = parseInt(id, 10);
         const result = await db.query(`
             UPDATE Barberos
             SET hora_inicio = $1::time,
@@ -283,7 +284,21 @@ class EmployeeModel {
                 bloqueos = $4::jsonb
             WHERE id_barbero = $5 OR id_usuario = $5
             RETURNING id_barbero
-        `, [hora_inicio, hora_fin, schedJson, blocksJson, id]);
+        `, [hora_inicio, hora_fin, schedJson, blocksJson, numId]);
+
+        if (result.rowCount === 0) {
+            const insRes = await db.query(`
+                INSERT INTO Barberos (id_usuario, estado, tipo_contrato, porcentaje_ganancia, hora_inicio, hora_fin, dias_laborales, bloqueos)
+                VALUES ($1, 'Activo', 'porcentaje', 50.00, $2::time, $3::time, $4::jsonb, $5::jsonb)
+                ON CONFLICT (id_usuario) DO UPDATE
+                SET hora_inicio = EXCLUDED.hora_inicio,
+                    hora_fin = EXCLUDED.hora_fin,
+                    dias_laborales = EXCLUDED.dias_laborales,
+                    bloqueos = EXCLUDED.bloqueos
+                RETURNING id_barbero
+            `, [numId, hora_inicio, hora_fin, schedJson, blocksJson]);
+            return insRes.rowCount > 0;
+        }
 
         return result.rowCount > 0;
     }
